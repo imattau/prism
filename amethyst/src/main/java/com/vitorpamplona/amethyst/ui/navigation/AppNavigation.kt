@@ -26,6 +26,13 @@ import android.os.Parcelable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -34,7 +41,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.core.util.Consumer
 import androidx.navigation.compose.NavHost
@@ -53,6 +63,7 @@ import com.vitorpamplona.amethyst.ui.navigation.routes.Route
 import com.vitorpamplona.amethyst.ui.navigation.routes.getRouteWithArguments
 import com.vitorpamplona.amethyst.ui.navigation.routes.isBaseRoute
 import com.vitorpamplona.amethyst.ui.navigation.routes.isSameRoute
+import com.vitorpamplona.amethyst.ui.navigation.topbars.TopBarWithBackButton
 import com.vitorpamplona.amethyst.ui.note.PayViaIntentScreen
 import com.vitorpamplona.amethyst.ui.note.nip22Comments.ReplyCommentPostScreen
 import com.vitorpamplona.amethyst.ui.screen.AccountStateViewModel
@@ -108,6 +119,7 @@ import com.vitorpamplona.amethyst.ui.screen.loggedIn.settings.UserSettingsScreen
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.threadview.ThreadScreen
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.VideoScreen
 import com.vitorpamplona.amethyst.ui.screen.loggedOff.AddAccountDialog
+import com.vitorpamplona.amethyst.ui.stringRes
 import com.vitorpamplona.amethyst.ui.uriToRoute
 import com.vitorpamplona.quartz.experimental.ephemChat.chat.RoomId
 import com.vitorpamplona.quartz.nip01Core.core.Address
@@ -123,6 +135,7 @@ fun AppNavigation(
     accountStateViewModel: AccountStateViewModel,
 ) {
     val nav = rememberNav()
+    val isLiteMode = accountViewModel.settings.isLiteMode()
 
     AccountSwitcherAndLeftDrawerLayout(accountViewModel, accountStateViewModel, nav) {
         NavHost(
@@ -133,23 +146,101 @@ fun AppNavigation(
         ) {
             composable<Route.Home> { HomeScreen(accountViewModel, nav) }
             composable<Route.Message> { MessagesScreen(accountViewModel, nav) }
-            composable<Route.Video> { VideoScreen(accountViewModel, nav) }
-            composable<Route.Discover> { DiscoverScreen(accountViewModel, nav) }
+            composable<Route.Video> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    VideoScreen(accountViewModel, nav)
+                }
+            }
+            composable<Route.Discover> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    DiscoverScreen(accountViewModel, nav)
+                }
+            }
             composable<Route.Notification> { NotificationScreen(accountViewModel, nav) }
 
-            composableFromEnd<Route.Lists> { ListOfPeopleListsScreen(accountViewModel, nav) }
-            composableFromEndArgs<Route.MyPeopleListView> { PeopleListScreen(it.dTag, accountViewModel, nav) }
-            composableFromEndArgs<Route.MyFollowPackView> { FollowPackScreen(it.dTag, accountViewModel, nav) }
-            composableFromBottomArgs<Route.PeopleListManagement> { FollowListAndPackAndUserScreen(it.userToAdd, accountViewModel, nav) }
+            composableFromEnd<Route.Lists> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    ListOfPeopleListsScreen(accountViewModel, nav)
+                }
+            }
+            composableFromEndArgs<Route.MyPeopleListView> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    PeopleListScreen(it.dTag, accountViewModel, nav)
+                }
+            }
+            composableFromEndArgs<Route.MyFollowPackView> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    FollowPackScreen(it.dTag, accountViewModel, nav)
+                }
+            }
+            composableFromBottomArgs<Route.PeopleListManagement> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    FollowListAndPackAndUserScreen(it.userToAdd, accountViewModel, nav)
+                }
+            }
 
-            composableFromBottomArgs<Route.PeopleListMetadataEdit> { PeopleListMetadataScreen(it.dTag, accountViewModel, nav) }
-            composableFromBottomArgs<Route.FollowPackMetadataEdit> { FollowPackMetadataScreen(it.dTag, accountViewModel, nav) }
+            composableFromBottomArgs<Route.PeopleListMetadataEdit> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    PeopleListMetadataScreen(it.dTag, accountViewModel, nav)
+                }
+            }
+            composableFromBottomArgs<Route.FollowPackMetadataEdit> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    FollowPackMetadataScreen(it.dTag, accountViewModel, nav)
+                }
+            }
 
-            composableFromEnd<Route.BookmarkGroups> { ListOfBookmarkGroupsScreen(accountViewModel, nav) }
-            composableFromEndArgs<Route.BookmarkGroupView> { BookmarkGroupScreen(it.dTag, it.bookmarkType, accountViewModel, nav) }
-            composableFromBottomArgs<Route.BookmarkGroupMetadataEdit> { BookmarkGroupMetadataScreen(it.dTag, accountViewModel, nav) }
-            composableFromBottomArgs<Route.PostBookmarkManagement> { PostBookmarkListManagementScreen(it.postId, accountViewModel, nav) }
-            composableFromBottomArgs<Route.ArticleBookmarkManagement> { ArticleBookmarkListManagementScreen(Address(it.kind, it.pubKeyHex, it.dTag), accountViewModel, nav) }
+            composableFromEnd<Route.BookmarkGroups> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    ListOfBookmarkGroupsScreen(accountViewModel, nav)
+                }
+            }
+            composableFromEndArgs<Route.BookmarkGroupView> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    BookmarkGroupScreen(it.dTag, it.bookmarkType, accountViewModel, nav)
+                }
+            }
+            composableFromBottomArgs<Route.BookmarkGroupMetadataEdit> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    BookmarkGroupMetadataScreen(it.dTag, accountViewModel, nav)
+                }
+            }
+            composableFromBottomArgs<Route.PostBookmarkManagement> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    PostBookmarkListManagementScreen(it.postId, accountViewModel, nav)
+                }
+            }
+            composableFromBottomArgs<Route.ArticleBookmarkManagement> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    ArticleBookmarkListManagementScreen(Address(it.kind, it.pubKeyHex, it.dTag), accountViewModel, nav)
+                }
+            }
 
             composableFromBottomArgs<Route.QRDisplay> { ShowQRScreen(it.pubkey, accountViewModel, nav) }
 
@@ -158,17 +249,53 @@ fun AppNavigation(
             composableFromBottomArgs<Route.EditProfile> { NewUserMetadataScreen(nav, accountViewModel) }
             composable<Route.Search> { SearchScreen(accountViewModel, nav) }
 
-            composableFromEnd<Route.SecurityFilters> { SecurityFiltersScreen(accountViewModel, nav) }
-            composableFromEnd<Route.PrivacyOptions> { PrivacyOptionsScreen(Amethyst.instance.torPrefs.value, nav) }
-            composableFromEnd<Route.Bookmarks> { BookmarkListScreen(accountViewModel, nav) }
-            composableFromEnd<Route.Drafts> { DraftListScreen(accountViewModel, nav) }
+            composableFromEnd<Route.SecurityFilters> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    SecurityFiltersScreen(accountViewModel, nav)
+                }
+            }
+            composableFromEnd<Route.PrivacyOptions> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    PrivacyOptionsScreen(Amethyst.instance.torPrefs.value, nav)
+                }
+            }
+            composableFromEnd<Route.Bookmarks> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    BookmarkListScreen(accountViewModel, nav)
+                }
+            }
+            composableFromEnd<Route.Drafts> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    DraftListScreen(accountViewModel, nav)
+                }
+            }
             composableFromEnd<Route.Settings> { SettingsScreen(accountViewModel, nav) }
             composableFromEnd<Route.UserSettings> { UserSettingsScreen(accountViewModel, nav) }
             composableFromBottomArgs<Route.Nip47NWCSetup> { NIP47SetupScreen(accountViewModel, nav, it.nip47) }
             composableFromEndArgs<Route.EditRelays> { AllRelayListScreen(accountViewModel, nav) }
-            composableFromEndArgs<Route.EditMediaServers> { AllMediaServersScreen(accountViewModel, nav) }
+            composableFromEndArgs<Route.EditMediaServers> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    AllMediaServersScreen(accountViewModel, nav)
+                }
+            }
 
-            composableFromEndArgs<Route.ContentDiscovery> { DvmContentDiscoveryScreen(it.id, accountViewModel, nav) }
+            composableFromEndArgs<Route.ContentDiscovery> {
+                if (isLiteMode) {
+                    LiteModeBlockedScreen(nav)
+                } else {
+                    DvmContentDiscoveryScreen(it.id, accountViewModel, nav)
+                }
+            }
             composableFromEndArgs<Route.Profile> { ProfileScreen(it.id, accountViewModel, nav) }
             composableFromEndArgs<Route.Note> { ThreadScreen(it.id, accountViewModel, nav) }
             composableFromEndArgs<Route.Hashtag> { HashtagScreen(it, accountViewModel, nav) }
@@ -310,6 +437,34 @@ fun AppNavigation(
     DisplayErrorMessages(accountViewModel.toastManager, accountViewModel, nav)
     DisplayNotifyMessages(accountViewModel, nav)
     DisplayCrashMessages(accountViewModel, nav)
+}
+
+@Composable
+private fun LiteModeBlockedScreen(nav: Nav) {
+    Scaffold(
+        topBar = {
+            TopBarWithBackButton(stringRes(id = R.string.lite_ui), nav::popBack)
+        },
+    ) { padding ->
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringRes(id = R.string.lite_ui_unavailable_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringRes(id = R.string.lite_ui_unavailable_description),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+    }
 }
 
 @Composable

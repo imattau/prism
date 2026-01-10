@@ -33,6 +33,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -120,6 +121,7 @@ fun SettingsScreen(sharedPrefs: UiSettingsFlow) {
         ShowProfilePictureChoice(sharedPrefs)
         ImmersiveScrollingChoice(sharedPrefs)
         FeatureSetChoice(sharedPrefs)
+        LiteModeChoice(sharedPrefs)
         GalleryChoice(sharedPrefs)
         PushNotificationSettingsRow(sharedPrefs)
     }
@@ -343,6 +345,21 @@ fun FeatureSetChoice(sharedPrefs: UiSettingsFlow) {
         featureSetIndex.screenCode,
     ) {
         sharedPrefs.featureSet.tryEmit(parseFeatureSetType(it))
+    }
+}
+
+@Composable
+fun LiteModeChoice(sharedPrefs: UiSettingsFlow) {
+    val liteModeEnabled by sharedPrefs.liteMode.collectAsState()
+
+    SettingsRow(
+        R.string.lite_ui,
+        R.string.lite_ui_description,
+    ) {
+        Switch(
+            checked = liteModeEnabled,
+            onCheckedChange = { sharedPrefs.liteMode.tryEmit(it) },
+        )
     }
 }
 

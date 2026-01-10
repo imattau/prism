@@ -71,6 +71,7 @@ class UiSharedPreferences(
         val UI_DONT_SHOW_PUSH_NOTIFICATION_SELECTOR = booleanPreferencesKey("ui.dont_show_push_notification_selector")
         val UI_DONT_ASK_FOR_NOTIFICATION_PERMISSIONS = booleanPreferencesKey("ui.dont_ask_for_notification_permissions")
         val UI_FEATURE_SET = stringPreferencesKey("ui.feature_set")
+        val UI_LITE_MODE = booleanPreferencesKey("ui.lite_mode")
         val UI_GALLERY_SET = stringPreferencesKey("ui.gallery_set")
     }
 
@@ -122,6 +123,7 @@ class UiSharedPreferences(
                 dontShowPushNotificationSelector = preferences[UI_DONT_SHOW_PUSH_NOTIFICATION_SELECTOR] ?: false,
                 dontAskForNotificationPermissions = preferences[UI_DONT_ASK_FOR_NOTIFICATION_PERMISSIONS] ?: false,
                 featureSet = preferences[UI_FEATURE_SET]?.let { FeatureSetType.valueOf(it) } ?: FeatureSetType.SIMPLIFIED,
+                liteMode = preferences[UI_LITE_MODE] ?: false,
                 gallerySet = preferences[UI_GALLERY_SET]?.let { ProfileGalleryType.valueOf(it) } ?: ProfileGalleryType.CLASSIC,
             )
         } catch (e: Exception) {
@@ -154,6 +156,7 @@ class UiSharedPreferences(
                 preferences[UI_DONT_SHOW_PUSH_NOTIFICATION_SELECTOR] = sharedSettings.dontShowPushNotificationSelector
                 preferences[UI_DONT_ASK_FOR_NOTIFICATION_PERMISSIONS] = sharedSettings.dontAskForNotificationPermissions
                 preferences[UI_FEATURE_SET] = sharedSettings.featureSet.name
+                preferences[UI_LITE_MODE] = sharedSettings.liteMode
                 preferences[UI_GALLERY_SET] = sharedSettings.gallerySet.name
             }
         } catch (e: Exception) {

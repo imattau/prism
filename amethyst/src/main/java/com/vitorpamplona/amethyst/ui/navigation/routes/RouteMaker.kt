@@ -20,6 +20,7 @@
  */
 package com.vitorpamplona.amethyst.ui.navigation.routes
 
+import com.vitorpamplona.amethyst.Amethyst
 import com.vitorpamplona.amethyst.model.Account
 import com.vitorpamplona.amethyst.model.LocalCache
 import com.vitorpamplona.amethyst.model.Note
@@ -71,12 +72,12 @@ fun routeFor(
         val innerEvent = loggedIn.draftsDecryptionCache.preCachedDraft(noteEvent)
 
         if (innerEvent != null) {
-            routeForInner(innerEvent, loggedIn)
+            filterLiteRoute(routeForInner(innerEvent, loggedIn))
         } else {
-            Route.Note(noteEvent.id)
+            filterLiteRoute(Route.Note(noteEvent.id))
         }
     } else {
-        routeForInner(noteEvent, loggedIn)
+        filterLiteRoute(routeForInner(noteEvent, loggedIn))
     }
 
 fun routeForInner(
@@ -226,13 +227,14 @@ fun routeReplyTo(
     account: Account,
 ): Route? {
     val noteEvent = note.event
-    return when (noteEvent) {
-        is ChannelMessageEvent -> {
-            noteEvent.channelId()?.let { channelId ->
-                Route.PublicChatChannel(channelId, replyTo = note.idHex)
+    val route =
+        when (noteEvent) {
+            is ChannelMessageEvent -> {
+                noteEvent.channelId()?.let { channelId ->
+                    Route.PublicChatChannel(channelId, replyTo = note.idHex)
+                }
             }
-        }
-        is LiveActivitiesChatMessageEvent -> {
+            is LiveActivitiesChatMessageEvent -> {
             noteEvent.activityAddress()?.let {
                 Route.LiveActivityChannel(it.kind, it.pubKeyHex, it.dTag, replyTo = note.idHex)
             }
@@ -272,9 +274,30 @@ fun routeReplyTo(
             } else {
                 Route.GenericCommentPost(replyTo = note.idHex)
             }
+            }
+
+            else -> Route.GenericCommentPost(replyTo = note.idHex)
         }
 
-        else -> Route.GenericCommentPost(replyTo = note.idHex)
+    return filterLiteRoute(route)
+}
+
+private fun filterLiteRoute(route: Route?): Route? {
+    if (route == null) return null
+    if (!Amethyst.instance.uiState.isLiteMode()) return route
+
+    return when (route) {
+        Route.Lists,
+        Route.BookmarkGroups,
+        Route.Bookmarks,
+        Route.Drafts,
+        Route.SecurityFilters,
+        Route.PrivacyOptions,
+        Route.EditMediaServers,
+        is Route.FollowPack,
+        is Route.ContentDiscovery,
+        -> null
+        else -> route
     }
 }
 

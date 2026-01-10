@@ -201,6 +201,55 @@ fun ReactionsRow(
 }
 
 @Composable
+fun LiteReactionsRow(
+    baseNote: Note,
+    addPadding: Boolean,
+    editState: State<GenericLoadable<EditState>>,
+    accountViewModel: AccountViewModel,
+    nav: INav,
+) {
+    val voiceRecordingState = remember(baseNote.idHex) { mutableStateOf(false) }
+    val isDM = baseNote.event is ChatroomKeyable
+
+    Row(
+        verticalAlignment = CenterVertically,
+        horizontalArrangement = RowColSpacing,
+        modifier = if (addPadding) ReactionRowHeightWithPadding else ReactionRowHeight,
+    ) {
+        Row(verticalAlignment = CenterVertically, horizontalArrangement = RowColSpacing, modifier = Modifier.weight(1f)) {
+            ReplyReactionWithDialog(
+                baseNote,
+                MaterialTheme.colorScheme.placeholderText,
+                accountViewModel,
+                nav,
+                voiceRecordingState = voiceRecordingState,
+            )
+        }
+
+        if (!isDM) {
+            Row(verticalAlignment = CenterVertically, horizontalArrangement = RowColSpacing, modifier = Modifier.weight(1f)) {
+                BoostWithDialog(
+                    baseNote,
+                    editState,
+                    MaterialTheme.colorScheme.placeholderText,
+                    accountViewModel,
+                    nav,
+                )
+            }
+        } else {
+            Box(modifier = Modifier.weight(1f))
+        }
+
+        Row(verticalAlignment = CenterVertically, modifier = Modifier.weight(1f)) {
+            ShareReaction(
+                note = baseNote,
+                grayTint = MaterialTheme.colorScheme.placeholderText,
+            )
+        }
+    }
+}
+
+@Composable
 private fun InnerReactionRow(
     baseNote: Note,
     showReactionDetail: Boolean,

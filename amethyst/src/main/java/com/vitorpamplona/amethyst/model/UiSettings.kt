@@ -37,6 +37,7 @@ data class UiSettings(
     val dontShowPushNotificationSelector: Boolean = false,
     val dontAskForNotificationPermissions: Boolean = false,
     val featureSet: FeatureSetType = FeatureSetType.SIMPLIFIED,
+    val liteMode: Boolean = false,
     val gallerySet: ProfileGalleryType = ProfileGalleryType.CLASSIC,
 )
 

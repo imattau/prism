@@ -186,7 +186,7 @@ fun uriToRoute(
             }
 
         if (route != null) {
-            return route
+            return filterLiteRoute(route)
         }
     }
 
@@ -195,16 +195,36 @@ fun uriToRoute(
         val nip47Uri = url.getQueryParameter("value")
         if (nip47Uri != null) {
             Nip47WalletConnect.parse(nip47Uri)
-            return Route.Nip47NWCSetup(nip47Uri)
+            return filterLiteRoute(Route.Nip47NWCSetup(nip47Uri))
         }
     }
 
     try {
         Nip47WalletConnect.parse(uri)
-        return Route.Nip47NWCSetup(uri)
+        return filterLiteRoute(Route.Nip47NWCSetup(uri))
     } catch (e: Exception) {
         if (e is CancellationException) throw e
     }
 
     return null
+}
+
+private fun filterLiteRoute(route: Route?): Route? {
+    if (route == null) return null
+    if (!Amethyst.instance.uiState.isLiteMode()) return route
+
+    return when (route) {
+        Route.Lists,
+        Route.BookmarkGroups,
+        Route.Bookmarks,
+        Route.Drafts,
+        Route.SecurityFilters,
+        Route.PrivacyOptions,
+        Route.EditMediaServers,
+        is Route.FollowPack,
+        is Route.ContentDiscovery,
+        is Route.Nip47NWCSetup,
+        -> null
+        else -> route
+    }
 }

@@ -82,7 +82,16 @@ private fun RenderBottomMenu(
             containerColor = MaterialTheme.colorScheme.background,
             tonalElevation = Size0dp,
         ) {
-            bottomNavigationItems.forEach { item ->
+            val items =
+                if (accountViewModel.settings.isLiteMode()) {
+                    bottomNavigationItems.filter { item ->
+                        item.route != Route.Video && item.route != Route.Discover
+                    }
+                } else {
+                    bottomNavigationItems
+                }
+
+            items.forEach { item ->
                 HasNewItemsIcon(item.route == selectedRoute, item, accountViewModel, nav)
             }
         }

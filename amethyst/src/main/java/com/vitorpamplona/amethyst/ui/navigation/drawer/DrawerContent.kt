@@ -437,6 +437,7 @@ fun ListContent(
     nav: INav,
 ) {
     var backupDialogOpen by remember { mutableStateOf(false) }
+    val isLiteMode = accountViewModel.settings.isLiteMode()
 
     Column(modifier) {
         NavigationRow(
@@ -447,29 +448,31 @@ fun ListContent(
             route = remember { Route.Profile(accountViewModel.userProfile().pubkeyHex) },
         )
 
-        NavigationRow(
-            title = R.string.my_lists,
-            icon = ImageVector.vectorResource(R.drawable.format_list_bulleted_type),
-            tint = MaterialTheme.colorScheme.onBackground,
-            nav = nav,
-            route = Route.Lists,
-        )
+        if (!isLiteMode) {
+            NavigationRow(
+                title = R.string.my_lists,
+                icon = ImageVector.vectorResource(R.drawable.format_list_bulleted_type),
+                tint = MaterialTheme.colorScheme.onBackground,
+                nav = nav,
+                route = Route.Lists,
+            )
 
-        NavigationRow(
-            title = R.string.bookmarks,
-            icon = Icons.Outlined.CollectionsBookmark,
-            tint = MaterialTheme.colorScheme.onBackground,
-            nav = nav,
-            route = Route.BookmarkGroups,
-        )
+            NavigationRow(
+                title = R.string.bookmarks,
+                icon = Icons.Outlined.CollectionsBookmark,
+                tint = MaterialTheme.colorScheme.onBackground,
+                nav = nav,
+                route = Route.BookmarkGroups,
+            )
 
-        NavigationRow(
-            title = R.string.drafts,
-            icon = Icons.Outlined.Drafts,
-            tint = MaterialTheme.colorScheme.onBackground,
-            nav = nav,
-            route = Route.Drafts,
-        )
+            NavigationRow(
+                title = R.string.drafts,
+                icon = Icons.Outlined.Drafts,
+                tint = MaterialTheme.colorScheme.onBackground,
+                nav = nav,
+                route = Route.Drafts,
+            )
+        }
 
         IconRowRelays(
             accountViewModel = accountViewModel,
@@ -479,32 +482,34 @@ fun ListContent(
             },
         )
 
-        IconRow(
-            title = R.string.media_servers,
-            icon = Icons.Outlined.CloudUpload,
-            tint = MaterialTheme.colorScheme.onBackground,
-            onClick = {
-                nav.closeDrawer()
-                nav.nav(Route.EditMediaServers)
-            },
-        )
+        if (!isLiteMode) {
+            IconRow(
+                title = R.string.media_servers,
+                icon = Icons.Outlined.CloudUpload,
+                tint = MaterialTheme.colorScheme.onBackground,
+                onClick = {
+                    nav.closeDrawer()
+                    nav.nav(Route.EditMediaServers)
+                },
+            )
 
-        NavigationRow(
-            title = R.string.security_filters,
-            icon = Icons.Outlined.Security,
-            tint = MaterialTheme.colorScheme.onBackground,
-            nav = nav,
-            route = Route.SecurityFilters,
-        )
+            NavigationRow(
+                title = R.string.security_filters,
+                icon = Icons.Outlined.Security,
+                tint = MaterialTheme.colorScheme.onBackground,
+                nav = nav,
+                route = Route.SecurityFilters,
+            )
 
-        NavigationRow(
-            title = R.string.privacy_options,
-            icon = R.drawable.ic_tor,
-            iconReference = 1,
-            tint = MaterialTheme.colorScheme.onBackground,
-            nav = nav,
-            route = Route.PrivacyOptions,
-        )
+            NavigationRow(
+                title = R.string.privacy_options,
+                icon = R.drawable.ic_tor,
+                iconReference = 1,
+                tint = MaterialTheme.colorScheme.onBackground,
+                nav = nav,
+                route = Route.PrivacyOptions,
+            )
+        }
 
         accountViewModel.account.settings.keyPair.privKey?.let {
             IconRow(

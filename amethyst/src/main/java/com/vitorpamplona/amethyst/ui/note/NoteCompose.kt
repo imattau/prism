@@ -589,14 +589,24 @@ fun InnerNoteWithReactions(
         if (makeItShort) {
             Spacer(modifier = DoubleVertSpacer)
         } else {
-            ReactionsRow(
-                baseNote = baseNote,
-                showReactionDetail = notBoostedNorQuote,
-                addPadding = !isBoostedNote,
-                editState = editState,
-                accountViewModel = accountViewModel,
-                nav = nav,
-            )
+            if (accountViewModel.settings.isLiteMode()) {
+                LiteReactionsRow(
+                    baseNote = baseNote,
+                    addPadding = !isBoostedNote,
+                    editState = editState,
+                    accountViewModel = accountViewModel,
+                    nav = nav,
+                )
+            } else {
+                ReactionsRow(
+                    baseNote = baseNote,
+                    showReactionDetail = notBoostedNorQuote,
+                    addPadding = !isBoostedNote,
+                    editState = editState,
+                    accountViewModel = accountViewModel,
+                    nav = nav,
+                )
+            }
         }
     } else {
         if (baseNote.event is DraftWrapEvent) {

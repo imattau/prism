@@ -880,6 +880,10 @@
 
     <string name="ui_style">UI Mode</string>
     <string name="ui_style_description">Choose the post style</string>
+    <string name="lite_ui">Lite UI</string>
+    <string name="lite_ui_description">Hide non-essential UI and reduce visual complexity</string>
+    <string name="lite_ui_unavailable_title">Unavailable in Lite UI</string>
+    <string name="lite_ui_unavailable_description">Disable Lite UI to access this screen.</string>
 
     <string name="gallery_style">Profile Gallery Style</string>
     <string name="gallery_style_description">Choose the gallery style</string>

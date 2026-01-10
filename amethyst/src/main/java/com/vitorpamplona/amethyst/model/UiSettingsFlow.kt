@@ -35,6 +35,7 @@ class UiSettingsFlow(
     val dontShowPushNotificationSelector: MutableStateFlow<Boolean> = MutableStateFlow(false),
     val dontAskForNotificationPermissions: MutableStateFlow<Boolean> = MutableStateFlow(false),
     val featureSet: MutableStateFlow<FeatureSetType> = MutableStateFlow(FeatureSetType.SIMPLIFIED),
+    val liteMode: MutableStateFlow<Boolean> = MutableStateFlow(false),
     val gallerySet: MutableStateFlow<ProfileGalleryType> = MutableStateFlow(ProfileGalleryType.CLASSIC),
 ) {
     val listOfFlows: List<Flow<Any?>> =
@@ -49,6 +50,7 @@ class UiSettingsFlow(
             dontShowPushNotificationSelector,
             dontAskForNotificationPermissions,
             featureSet,
+            liteMode,
             gallerySet,
         )
 
@@ -66,7 +68,8 @@ class UiSettingsFlow(
                 flows[7] as Boolean,
                 flows[8] as Boolean,
                 flows[9] as FeatureSetType,
-                flows[10] as ProfileGalleryType,
+                flows[10] as Boolean,
+                flows[11] as ProfileGalleryType,
             )
         }
 
@@ -82,6 +85,7 @@ class UiSettingsFlow(
             dontShowPushNotificationSelector.value,
             dontAskForNotificationPermissions.value,
             featureSet.value,
+            liteMode.value,
             gallerySet.value,
         )
 
@@ -128,6 +132,10 @@ class UiSettingsFlow(
             featureSet.tryEmit(torSettings.featureSet)
             any = true
         }
+        if (liteMode.value != torSettings.liteMode) {
+            liteMode.tryEmit(torSettings.liteMode)
+            any = true
+        }
         if (gallerySet.value != torSettings.gallerySet) {
             gallerySet.tryEmit(torSettings.gallerySet)
             any = true
@@ -161,6 +169,7 @@ class UiSettingsFlow(
                 MutableStateFlow(torSettings.dontShowPushNotificationSelector),
                 MutableStateFlow(torSettings.dontAskForNotificationPermissions),
                 MutableStateFlow(torSettings.featureSet),
+                MutableStateFlow(torSettings.liteMode),
                 MutableStateFlow(torSettings.gallerySet),
             )
     }

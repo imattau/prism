@@ -37,3 +37,7 @@
 
 ## Local Tooling Tips
 - Git hooks are provided in `git-hooks/`. Running any Gradle `preBuild` task installs them.
+
+## Plan Tracking
+- Check plan files (for example, `PLAN.md`) before starting work.
+- Cross out completed plan items using Markdown strikethrough (e.g., `~~done~~`).
