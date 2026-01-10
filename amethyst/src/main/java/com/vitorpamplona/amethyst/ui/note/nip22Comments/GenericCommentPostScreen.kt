@@ -191,7 +191,8 @@ private fun GenericCommentPostBody(
     accountViewModel: AccountViewModel,
     nav: Nav,
 ) {
-    val scrollState = rememberScrollState()
+        val scrollState = rememberScrollState()
+        val isLiteMode = accountViewModel.settings.isLiteMode()
 
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -258,7 +259,7 @@ private fun GenericCommentPostBody(
                     }
                 }
 
-                if (postViewModel.wantsToAddGeoHash) {
+                if (!isLiteMode && postViewModel.wantsToAddGeoHash) {
                     Row(
                         verticalAlignment = CenterVertically,
                         modifier = Modifier.padding(vertical = Size5dp, horizontal = Size10dp),
@@ -267,7 +268,7 @@ private fun GenericCommentPostBody(
                     }
                 }
 
-                if (postViewModel.wantsForwardZapTo) {
+                if (!isLiteMode && postViewModel.wantsForwardZapTo) {
                     Row(
                         verticalAlignment = CenterVertically,
                         modifier = Modifier.padding(top = Size5dp, bottom = Size5dp, start = Size10dp),
@@ -276,29 +277,38 @@ private fun GenericCommentPostBody(
                     }
                 }
 
-                postViewModel.multiOrchestrator?.let {
-                    Row(
-                        verticalAlignment = CenterVertically,
-                        modifier = Modifier.padding(vertical = Size5dp, horizontal = Size10dp),
-                    ) {
-                        val context = LocalContext.current
-                        ImageVideoDescription(
-                            it,
-                            accountViewModel.account.settings.defaultFileServer,
-                            onAdd = { alt, server, sensitiveContent, mediaQuality, _ ->
-                                postViewModel.upload(alt, if (sensitiveContent) "" else null, mediaQuality, server, accountViewModel.toastManager::toast, context)
-                                if (server.type != ServerType.NIP95) {
-                                    accountViewModel.account.settings.changeDefaultFileServer(server)
-                                }
-                            },
-                            onDelete = postViewModel::deleteMediaToUpload,
-                            onCancel = { postViewModel.multiOrchestrator = null },
-                            accountViewModel = accountViewModel,
-                        )
+                if (!isLiteMode) {
+                    postViewModel.multiOrchestrator?.let {
+                        Row(
+                            verticalAlignment = CenterVertically,
+                            modifier = Modifier.padding(vertical = Size5dp, horizontal = Size10dp),
+                        ) {
+                            val context = LocalContext.current
+                            ImageVideoDescription(
+                                it,
+                                accountViewModel.account.settings.defaultFileServer,
+                                onAdd = { alt, server, sensitiveContent, mediaQuality, _ ->
+                                    postViewModel.upload(
+                                        alt,
+                                        if (sensitiveContent) "" else null,
+                                        mediaQuality,
+                                        server,
+                                        accountViewModel.toastManager::toast,
+                                        context,
+                                    )
+                                    if (server.type != ServerType.NIP95) {
+                                        accountViewModel.account.settings.changeDefaultFileServer(server)
+                                    }
+                                },
+                                onDelete = postViewModel::deleteMediaToUpload,
+                                onCancel = { postViewModel.multiOrchestrator = null },
+                                accountViewModel = accountViewModel,
+                            )
+                        }
                     }
                 }
 
-                if (postViewModel.wantsInvoice) {
+                if (!isLiteMode && postViewModel.wantsInvoice) {
                     postViewModel.lnAddress()?.let { lud16 ->
                         InvoiceRequest(
                             lud16,
@@ -315,7 +325,7 @@ private fun GenericCommentPostBody(
                     }
                 }
 
-                if (postViewModel.wantsSecretEmoji) {
+                if (!isLiteMode && postViewModel.wantsSecretEmoji) {
                     Row(
                         verticalAlignment = CenterVertically,
                         modifier = Modifier.padding(vertical = Size5dp, horizontal = Size10dp),
@@ -329,7 +339,7 @@ private fun GenericCommentPostBody(
                     }
                 }
 
-                if (postViewModel.wantsZapraiser && postViewModel.hasLnAddress()) {
+                if (!isLiteMode && postViewModel.wantsZapraiser && postViewModel.hasLnAddress()) {
                     Row(
                         verticalAlignment = CenterVertically,
                         modifier = Modifier.padding(vertical = Size5dp, horizontal = Size10dp),
@@ -362,12 +372,15 @@ private fun GenericCommentPostBody(
             )
         }
 
-        BottomRowActions(postViewModel)
+        BottomRowActions(postViewModel, isLiteMode)
     }
 }
 
 @Composable
-private fun BottomRowActions(postViewModel: CommentPostViewModel) {
+private fun BottomRowActions(
+    postViewModel: CommentPostViewModel,
+    isLiteMode: Boolean,
+) {
     val scrollState = rememberScrollState()
     Row(
         modifier =
@@ -377,33 +390,35 @@ private fun BottomRowActions(postViewModel: CommentPostViewModel) {
                 .height(50.dp),
         verticalAlignment = CenterVertically,
     ) {
-        SelectFromGallery(
-            isUploading = postViewModel.isUploadingImage,
-            tint = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier,
-        ) {
-            postViewModel.selectImage(it)
-        }
-
-        TakePictureButton(
-            onPictureTaken = {
+        if (!isLiteMode) {
+            SelectFromGallery(
+                isUploading = postViewModel.isUploadingImage,
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier,
+            ) {
                 postViewModel.selectImage(it)
-            },
-        )
+            }
 
-        TakeVideoButton(
-            onVideoTaken = {
-                postViewModel.selectImage(it)
-            },
-        )
+            TakePictureButton(
+                onPictureTaken = {
+                    postViewModel.selectImage(it)
+                },
+            )
 
-        ForwardZapToButton(postViewModel.wantsForwardZapTo) {
-            postViewModel.wantsForwardZapTo = !postViewModel.wantsForwardZapTo
-        }
+            TakeVideoButton(
+                onVideoTaken = {
+                    postViewModel.selectImage(it)
+                },
+            )
 
-        if (postViewModel.canAddZapRaiser) {
-            AddZapraiserButton(postViewModel.wantsZapraiser) {
-                postViewModel.wantsZapraiser = !postViewModel.wantsZapraiser
+            ForwardZapToButton(postViewModel.wantsForwardZapTo) {
+                postViewModel.wantsForwardZapTo = !postViewModel.wantsForwardZapTo
+            }
+
+            if (postViewModel.canAddZapRaiser) {
+                AddZapraiserButton(postViewModel.wantsZapraiser) {
+                    postViewModel.wantsZapraiser = !postViewModel.wantsZapraiser
+                }
             }
         }
 
@@ -411,17 +426,19 @@ private fun BottomRowActions(postViewModel: CommentPostViewModel) {
             postViewModel.toggleMarkAsSensitive()
         }
 
-        AddGeoHashButton(postViewModel.wantsToAddGeoHash) {
-            postViewModel.wantsToAddGeoHash = !postViewModel.wantsToAddGeoHash
-        }
+        if (!isLiteMode) {
+            AddGeoHashButton(postViewModel.wantsToAddGeoHash) {
+                postViewModel.wantsToAddGeoHash = !postViewModel.wantsToAddGeoHash
+            }
 
-        AddSecretEmojiButton(postViewModel.wantsSecretEmoji) {
-            postViewModel.wantsSecretEmoji = !postViewModel.wantsSecretEmoji
-        }
+            AddSecretEmojiButton(postViewModel.wantsSecretEmoji) {
+                postViewModel.wantsSecretEmoji = !postViewModel.wantsSecretEmoji
+            }
 
-        if (postViewModel.canAddInvoice && postViewModel.hasLnAddress()) {
-            AddLnInvoiceButton(postViewModel.wantsInvoice) {
-                postViewModel.wantsInvoice = !postViewModel.wantsInvoice
+            if (postViewModel.canAddInvoice && postViewModel.hasLnAddress()) {
+                AddLnInvoiceButton(postViewModel.wantsInvoice) {
+                    postViewModel.wantsInvoice = !postViewModel.wantsInvoice
+                }
             }
         }
     }

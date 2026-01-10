@@ -41,6 +41,8 @@ fun ShowVideoStreaming(
     baseChannel: LiveActivitiesChannel,
     accountViewModel: AccountViewModel,
 ) {
+    if (accountViewModel.settings.isLiteMode()) return
+
     baseChannel.info?.let {
         val streamingInfoEvent by observeChannelInfo(baseChannel, accountViewModel)
         streamingInfoEvent?.let { event ->

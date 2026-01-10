@@ -97,6 +97,10 @@ fun DiscoverScreen(
     accountViewModel: AccountViewModel,
     nav: INav,
 ) {
+    if (accountViewModel.settings.isLiteMode()) {
+        LiteModeDiscoverBlocked()
+        return
+    }
     DiscoverScreen(
         discoveryFollowSetsFeedContentState = accountViewModel.feedStates.discoverFollowSets,
         discoveryReadsFeedContentState = accountViewModel.feedStates.discoverReads,
@@ -123,6 +127,10 @@ fun DiscoverScreen(
     accountViewModel: AccountViewModel,
     nav: INav,
 ) {
+    if (accountViewModel.settings.isLiteMode()) {
+        LiteModeDiscoverBlocked()
+        return
+    }
     val tabs by
         remember(accountViewModel) {
             mutableStateOf(
@@ -205,6 +213,24 @@ fun DiscoverScreen(
     DiscoveryFilterAssemblerSubscription(accountViewModel.dataSources().discovery, accountViewModel)
 
     DiscoverPages(pagerState, tabs, accountViewModel, nav)
+}
+
+@Composable
+private fun LiteModeDiscoverBlocked() {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringRes(id = R.string.lite_ui_unavailable_title),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            text = stringRes(id = R.string.lite_ui_unavailable_description),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
 }
 
 @Composable

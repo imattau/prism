@@ -180,6 +180,7 @@ fun PublicMessageScreenContent(
     nav: INav,
 ) {
     val scrollState = rememberScrollState()
+    val isLiteMode = accountViewModel.settings.isLiteMode()
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = Size10dp).weight(1f)) {
@@ -214,37 +215,46 @@ fun PublicMessageScreenContent(
                     ContentSensitivityExplainer()
                 }
 
-                if (postViewModel.wantsToAddGeoHash) {
+                if (!isLiteMode && postViewModel.wantsToAddGeoHash) {
                     LocationAsHash(postViewModel)
                 }
 
-                if (postViewModel.wantsForwardZapTo) {
+                if (!isLiteMode && postViewModel.wantsForwardZapTo) {
                     ForwardZapTo(postViewModel, accountViewModel)
                 }
 
-                postViewModel.multiOrchestrator?.let {
-                    Row(
-                        verticalAlignment = CenterVertically,
-                        modifier = Modifier.padding(vertical = Size5dp, horizontal = Size10dp),
-                    ) {
-                        val context = LocalContext.current
-                        ImageVideoDescription(
-                            it,
-                            accountViewModel.account.settings.defaultFileServer,
-                            onAdd = { alt, server, sensitiveContent, mediaQuality, _ ->
-                                postViewModel.upload(alt, if (sensitiveContent) "" else null, mediaQuality, server, accountViewModel.toastManager::toast, context)
-                                if (server.type != ServerType.NIP95) {
-                                    accountViewModel.account.settings.changeDefaultFileServer(server)
-                                }
-                            },
-                            onDelete = postViewModel::deleteMediaToUpload,
-                            onCancel = { postViewModel.multiOrchestrator = null },
-                            accountViewModel = accountViewModel,
-                        )
+                if (!isLiteMode) {
+                    postViewModel.multiOrchestrator?.let {
+                        Row(
+                            verticalAlignment = CenterVertically,
+                            modifier = Modifier.padding(vertical = Size5dp, horizontal = Size10dp),
+                        ) {
+                            val context = LocalContext.current
+                            ImageVideoDescription(
+                                it,
+                                accountViewModel.account.settings.defaultFileServer,
+                                onAdd = { alt, server, sensitiveContent, mediaQuality, _ ->
+                                    postViewModel.upload(
+                                        alt,
+                                        if (sensitiveContent) "" else null,
+                                        mediaQuality,
+                                        server,
+                                        accountViewModel.toastManager::toast,
+                                        context,
+                                    )
+                                    if (server.type != ServerType.NIP95) {
+                                        accountViewModel.account.settings.changeDefaultFileServer(server)
+                                    }
+                                },
+                                onDelete = postViewModel::deleteMediaToUpload,
+                                onCancel = { postViewModel.multiOrchestrator = null },
+                                accountViewModel = accountViewModel,
+                            )
+                        }
                     }
                 }
 
-                if (postViewModel.wantsInvoice) {
+                if (!isLiteMode && postViewModel.wantsInvoice) {
                     NewPostInvoiceRequest(
                         onSuccess = {
                             postViewModel.insertAtCursor(it)
@@ -254,14 +264,14 @@ fun PublicMessageScreenContent(
                     )
                 }
 
-                if (postViewModel.wantsSecretEmoji) {
+                if (!isLiteMode && postViewModel.wantsSecretEmoji) {
                     SecretEmojiRequest {
                         postViewModel.insertAtCursor(it)
                         postViewModel.wantsSecretEmoji = false
                     }
                 }
 
-                if (postViewModel.wantsZapraiser && postViewModel.hasLnAddress()) {
+                if (!isLiteMode && postViewModel.wantsZapraiser && postViewModel.hasLnAddress()) {
                     ZapRaiserRequest(
                         stringRes(id = R.string.zapraiser),
                         postViewModel,
@@ -289,7 +299,7 @@ fun PublicMessageScreenContent(
             )
         }
 
-        BottomRowActions(postViewModel, accountViewModel)
+        BottomRowActions(postViewModel, accountViewModel, isLiteMode)
     }
 }
 
@@ -297,6 +307,7 @@ fun PublicMessageScreenContent(
 private fun BottomRowActions(
     postViewModel: NewPublicMessageViewModel,
     accountViewModel: AccountViewModel,
+    isLiteMode: Boolean,
 ) {
     val scrollState = rememberScrollState()
     Row(
@@ -307,33 +318,35 @@ private fun BottomRowActions(
                 .height(50.dp),
         verticalAlignment = CenterVertically,
     ) {
-        SelectFromGallery(
-            isUploading = postViewModel.isUploadingImage,
-            tint = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier,
-        ) {
-            postViewModel.selectImage(it)
-        }
-
-        TakePictureButton(
-            onPictureTaken = {
+        if (!isLiteMode) {
+            SelectFromGallery(
+                isUploading = postViewModel.isUploadingImage,
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier,
+            ) {
                 postViewModel.selectImage(it)
-            },
-        )
+            }
 
-        TakeVideoButton(
-            onVideoTaken = {
-                postViewModel.selectImage(it)
-            },
-        )
+            TakePictureButton(
+                onPictureTaken = {
+                    postViewModel.selectImage(it)
+                },
+            )
 
-        ForwardZapToButton(postViewModel.wantsForwardZapTo) {
-            postViewModel.wantsForwardZapTo = !postViewModel.wantsForwardZapTo
-        }
+            TakeVideoButton(
+                onVideoTaken = {
+                    postViewModel.selectImage(it)
+                },
+            )
 
-        if (postViewModel.canAddZapRaiser) {
-            AddZapraiserButton(postViewModel.wantsZapraiser) {
-                postViewModel.wantsZapraiser = !postViewModel.wantsZapraiser
+            ForwardZapToButton(postViewModel.wantsForwardZapTo) {
+                postViewModel.wantsForwardZapTo = !postViewModel.wantsForwardZapTo
+            }
+
+            if (postViewModel.canAddZapRaiser) {
+                AddZapraiserButton(postViewModel.wantsZapraiser) {
+                    postViewModel.wantsZapraiser = !postViewModel.wantsZapraiser
+                }
             }
         }
 
@@ -341,17 +354,19 @@ private fun BottomRowActions(
             postViewModel.toggleMarkAsSensitive()
         }
 
-        AddGeoHashButton(postViewModel.wantsToAddGeoHash) {
-            postViewModel.wantsToAddGeoHash = !postViewModel.wantsToAddGeoHash
-        }
+        if (!isLiteMode) {
+            AddGeoHashButton(postViewModel.wantsToAddGeoHash) {
+                postViewModel.wantsToAddGeoHash = !postViewModel.wantsToAddGeoHash
+            }
 
-        AddSecretEmojiButton(postViewModel.wantsSecretEmoji) {
-            postViewModel.wantsSecretEmoji = !postViewModel.wantsSecretEmoji
-        }
+            AddSecretEmojiButton(postViewModel.wantsSecretEmoji) {
+                postViewModel.wantsSecretEmoji = !postViewModel.wantsSecretEmoji
+            }
 
-        if (postViewModel.canAddInvoice && postViewModel.hasLnAddress()) {
-            AddLnInvoiceButton(postViewModel.wantsInvoice) {
-                postViewModel.wantsInvoice = !postViewModel.wantsInvoice
+            if (postViewModel.canAddInvoice && postViewModel.hasLnAddress()) {
+                AddLnInvoiceButton(postViewModel.wantsInvoice) {
+                    postViewModel.wantsInvoice = !postViewModel.wantsInvoice
+                }
             }
         }
     }

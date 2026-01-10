@@ -107,6 +107,10 @@ fun VideoScreen(
     accountViewModel: AccountViewModel,
     nav: INav,
 ) {
+    if (accountViewModel.settings.isLiteMode()) {
+        LiteModeVideoBlocked()
+        return
+    }
     VideoScreen(
         accountViewModel.feedStates.videoFeed,
         accountViewModel,
@@ -120,6 +124,10 @@ fun VideoScreen(
     accountViewModel: AccountViewModel,
     nav: INav,
 ) {
+    if (accountViewModel.settings.isLiteMode()) {
+        LiteModeVideoBlocked()
+        return
+    }
     WatchLifecycleAndUpdateModel(videoFeedContentState)
     WatchAccountForVideoScreen(videoFeedContentState = videoFeedContentState, accountViewModel = accountViewModel)
     VideoFilterAssemblerSubscription(accountViewModel)
@@ -153,6 +161,24 @@ fun VideoScreen(
                 nav = nav,
             )
         }
+    }
+}
+
+@Composable
+private fun LiteModeVideoBlocked() {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringRes(id = R.string.lite_ui_unavailable_title),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            text = stringRes(id = R.string.lite_ui_unavailable_description),
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 

@@ -222,6 +222,7 @@ private fun NewPostScreenBody(
     nav: Nav,
 ) {
     val scrollState = rememberScrollState()
+    val isLiteMode = accountViewModel.settings.isLiteMode()
     Column(
         modifier =
             Modifier.fillMaxSize(),
@@ -282,7 +283,7 @@ private fun NewPostScreenBody(
                     }
                 }
 
-                if (postViewModel.wantsPoll) {
+                if (!isLiteMode && postViewModel.wantsPoll) {
                     Row(
                         verticalAlignment = CenterVertically,
                         modifier = Modifier.padding(vertical = Size5dp, horizontal = Size10dp),
@@ -302,7 +303,7 @@ private fun NewPostScreenBody(
                     }
                 }
 
-                if (postViewModel.wantsToAddGeoHash) {
+                if (!isLiteMode && postViewModel.wantsToAddGeoHash) {
                     Row(
                         verticalAlignment = CenterVertically,
                         modifier = Modifier.padding(vertical = Size5dp, horizontal = Size10dp),
@@ -318,7 +319,7 @@ private fun NewPostScreenBody(
                     }
                 }
 
-                if (postViewModel.wantsForwardZapTo) {
+                if (!isLiteMode && postViewModel.wantsForwardZapTo) {
                     Row(
                         verticalAlignment = CenterVertically,
                         modifier = Modifier.padding(top = Size5dp, bottom = Size5dp, start = Size10dp),
@@ -327,61 +328,73 @@ private fun NewPostScreenBody(
                     }
                 }
 
-                postViewModel.multiOrchestrator?.let {
-                    Row(
-                        verticalAlignment = CenterVertically,
-                        modifier = Modifier.padding(vertical = Size5dp, horizontal = Size10dp),
-                    ) {
-                        val context = LocalContext.current
-                        ImageVideoDescription(
-                            it,
-                            accountViewModel.account.settings.defaultFileServer,
-                            onAdd = { alt, server, sensitiveContent, mediaQuality, useH265 ->
-                                postViewModel.upload(alt, if (sensitiveContent) "" else null, mediaQuality, server, accountViewModel.toastManager::toast, context, useH265)
-                                if (server.type != ServerType.NIP95) {
-                                    accountViewModel.account.settings.changeDefaultFileServer(server)
-                                }
-                            },
-                            onDelete = postViewModel::deleteMediaToUpload,
-                            onCancel = { postViewModel.multiOrchestrator = null },
-                            accountViewModel = accountViewModel,
-                        )
-                    }
-                }
-
-                // Show preview for both uploaded messages (voiceMetadata) and pending recordings
-                (postViewModel.voiceMetadata ?: postViewModel.getVoicePreviewMetadata())?.let { metadata ->
-                    val fileServersState =
-                        accountViewModel.account.serverLists.liveServerList
-                            .collectAsState()
-                    val fileServers = fileServersState.value
-
-                    Column(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = Size5dp, horizontal = Size10dp),
-                    ) {
-                        // Display voice preview or uploading progress
-                        postViewModel.voiceOrchestrator?.let { orchestrator ->
-                            UploadProgressIndicator(orchestrator)
-                        } ?: run {
-                            VoiceMessagePreview(
-                                voiceMetadata = metadata,
-                                localFile = postViewModel.voiceLocalFile,
-                                onRemove = { postViewModel.removeVoiceMessage() },
+                if (!isLiteMode) {
+                    postViewModel.multiOrchestrator?.let {
+                        Row(
+                            verticalAlignment = CenterVertically,
+                            modifier = Modifier.padding(vertical = Size5dp, horizontal = Size10dp),
+                        ) {
+                            val context = LocalContext.current
+                            ImageVideoDescription(
+                                it,
+                                accountViewModel.account.settings.defaultFileServer,
+                                onAdd = { alt, server, sensitiveContent, mediaQuality, useH265 ->
+                                    postViewModel.upload(
+                                        alt,
+                                        if (sensitiveContent) "" else null,
+                                        mediaQuality,
+                                        server,
+                                        accountViewModel.toastManager::toast,
+                                        context,
+                                        useH265,
+                                    )
+                                    if (server.type != ServerType.NIP95) {
+                                        accountViewModel.account.settings.changeDefaultFileServer(server)
+                                    }
+                                },
+                                onDelete = postViewModel::deleteMediaToUpload,
+                                onCancel = { postViewModel.multiOrchestrator = null },
+                                accountViewModel = accountViewModel,
                             )
                         }
-
-                        FileServerSelectionRow(
-                            fileServers = fileServers,
-                            selectedServer = postViewModel.voiceSelectedServer ?: accountViewModel.account.settings.defaultFileServer,
-                            onSelect = { postViewModel.voiceSelectedServer = it },
-                        )
                     }
                 }
 
-                if (postViewModel.wantsInvoice) {
+                if (!isLiteMode) {
+                    // Show preview for both uploaded messages (voiceMetadata) and pending recordings
+                    (postViewModel.voiceMetadata ?: postViewModel.getVoicePreviewMetadata())?.let { metadata ->
+                        val fileServersState =
+                            accountViewModel.account.serverLists.liveServerList
+                                .collectAsState()
+                        val fileServers = fileServersState.value
+
+                        Column(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = Size5dp, horizontal = Size10dp),
+                        ) {
+                            // Display voice preview or uploading progress
+                            postViewModel.voiceOrchestrator?.let { orchestrator ->
+                                UploadProgressIndicator(orchestrator)
+                            } ?: run {
+                                VoiceMessagePreview(
+                                    voiceMetadata = metadata,
+                                    localFile = postViewModel.voiceLocalFile,
+                                    onRemove = { postViewModel.removeVoiceMessage() },
+                                )
+                            }
+
+                            FileServerSelectionRow(
+                                fileServers = fileServers,
+                                selectedServer = postViewModel.voiceSelectedServer ?: accountViewModel.account.settings.defaultFileServer,
+                                onSelect = { postViewModel.voiceSelectedServer = it },
+                            )
+                        }
+                    }
+                }
+
+                if (!isLiteMode && postViewModel.wantsInvoice) {
                     postViewModel.lnAddress()?.let { lud16 ->
                         InvoiceRequest(
                             lud16,
@@ -398,7 +411,7 @@ private fun NewPostScreenBody(
                     }
                 }
 
-                if (postViewModel.wantsSecretEmoji) {
+                if (!isLiteMode && postViewModel.wantsSecretEmoji) {
                     Row(
                         verticalAlignment = CenterVertically,
                         modifier = Modifier.padding(vertical = Size5dp, horizontal = Size10dp),
@@ -412,7 +425,7 @@ private fun NewPostScreenBody(
                     }
                 }
 
-                if (postViewModel.wantsZapRaiser && postViewModel.hasLnAddress()) {
+                if (!isLiteMode && postViewModel.wantsZapRaiser && postViewModel.hasLnAddress()) {
                     Row(
                         verticalAlignment = CenterVertically,
                         modifier = Modifier.padding(vertical = Size5dp, horizontal = Size10dp),
@@ -445,12 +458,15 @@ private fun NewPostScreenBody(
             )
         }
 
-        BottomRowActions(postViewModel)
+        BottomRowActions(postViewModel, isLiteMode)
     }
 }
 
 @Composable
-private fun BottomRowActions(postViewModel: ShortNotePostViewModel) {
+private fun BottomRowActions(
+    postViewModel: ShortNotePostViewModel,
+    isLiteMode: Boolean,
+) {
     val scrollState = rememberScrollState()
     Row(
         modifier =
@@ -460,48 +476,50 @@ private fun BottomRowActions(postViewModel: ShortNotePostViewModel) {
                 .height(50.dp),
         verticalAlignment = CenterVertically,
     ) {
-        SelectFromGallery(
-            isUploading = postViewModel.isUploadingImage,
-            tint = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier,
-        ) {
-            postViewModel.selectImage(it)
-        }
-
-        TakePictureButton(
-            onPictureTaken = {
+        if (!isLiteMode) {
+            SelectFromGallery(
+                isUploading = postViewModel.isUploadingImage,
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier,
+            ) {
                 postViewModel.selectImage(it)
-            },
-        )
-
-        TakeVideoButton(
-            onVideoTaken = {
-                postViewModel.selectImage(it)
-            },
-        )
-
-        RecordVoiceButton(
-            onVoiceTaken = { recording ->
-                postViewModel.selectVoiceRecording(recording)
-            },
-        )
-
-        if (postViewModel.canUsePoll) {
-            // These should be hashtag recommendations the user selects in the future.
-            // val hashtag = stringRes(R.string.poll_hashtag)
-            // postViewModel.includePollHashtagInMessage(postViewModel.wantsPoll, hashtag)
-            AddPollButton(postViewModel.wantsPoll) {
-                postViewModel.wantsPoll = !postViewModel.wantsPoll
             }
-        }
 
-        ForwardZapToButton(postViewModel.wantsForwardZapTo) {
-            postViewModel.wantsForwardZapTo = !postViewModel.wantsForwardZapTo
-        }
+            TakePictureButton(
+                onPictureTaken = {
+                    postViewModel.selectImage(it)
+                },
+            )
 
-        if (postViewModel.canAddZapRaiser) {
-            AddZapraiserButton(postViewModel.wantsZapRaiser) {
-                postViewModel.wantsZapRaiser = !postViewModel.wantsZapRaiser
+            TakeVideoButton(
+                onVideoTaken = {
+                    postViewModel.selectImage(it)
+                },
+            )
+
+            RecordVoiceButton(
+                onVoiceTaken = { recording ->
+                    postViewModel.selectVoiceRecording(recording)
+                },
+            )
+
+            if (postViewModel.canUsePoll) {
+                // These should be hashtag recommendations the user selects in the future.
+                // val hashtag = stringRes(R.string.poll_hashtag)
+                // postViewModel.includePollHashtagInMessage(postViewModel.wantsPoll, hashtag)
+                AddPollButton(postViewModel.wantsPoll) {
+                    postViewModel.wantsPoll = !postViewModel.wantsPoll
+                }
+            }
+
+            ForwardZapToButton(postViewModel.wantsForwardZapTo) {
+                postViewModel.wantsForwardZapTo = !postViewModel.wantsForwardZapTo
+            }
+
+            if (postViewModel.canAddZapRaiser) {
+                AddZapraiserButton(postViewModel.wantsZapRaiser) {
+                    postViewModel.wantsZapRaiser = !postViewModel.wantsZapRaiser
+                }
             }
         }
 
@@ -509,17 +527,19 @@ private fun BottomRowActions(postViewModel: ShortNotePostViewModel) {
             postViewModel.toggleMarkAsSensitive()
         }
 
-        AddGeoHashButton(postViewModel.wantsToAddGeoHash) {
-            postViewModel.wantsToAddGeoHash = !postViewModel.wantsToAddGeoHash
-        }
+        if (!isLiteMode) {
+            AddGeoHashButton(postViewModel.wantsToAddGeoHash) {
+                postViewModel.wantsToAddGeoHash = !postViewModel.wantsToAddGeoHash
+            }
 
-        AddSecretEmojiButton(postViewModel.wantsSecretEmoji) {
-            postViewModel.wantsSecretEmoji = !postViewModel.wantsSecretEmoji
-        }
+            AddSecretEmojiButton(postViewModel.wantsSecretEmoji) {
+                postViewModel.wantsSecretEmoji = !postViewModel.wantsSecretEmoji
+            }
 
-        if (postViewModel.canAddInvoice && postViewModel.hasLnAddress()) {
-            AddLnInvoiceButton(postViewModel.wantsInvoice) {
-                postViewModel.wantsInvoice = !postViewModel.wantsInvoice
+            if (postViewModel.canAddInvoice && postViewModel.hasLnAddress()) {
+                AddLnInvoiceButton(postViewModel.wantsInvoice) {
+                    postViewModel.wantsInvoice = !postViewModel.wantsInvoice
+                }
             }
         }
     }

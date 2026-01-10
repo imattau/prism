@@ -224,6 +224,7 @@ fun GroupDMScreenContent(
 ) {
     val scrollState = rememberScrollState()
     val context = LocalContext.current
+    val isLiteMode = accountViewModel.settings.isLiteMode()
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = Size10dp).weight(1f)) {
@@ -235,21 +236,23 @@ fun GroupDMScreenContent(
 
                 MessageFieldRow(postViewModel, accountViewModel)
 
-                DisplayPreviews(postViewModel, accountViewModel, nav)
+                if (!isLiteMode) {
+                    DisplayPreviews(postViewModel, accountViewModel, nav)
+                }
 
                 if (postViewModel.wantsToMarkAsSensitive) {
                     ContentSensitivityExplainer()
                 }
 
-                if (postViewModel.wantsToAddGeoHash) {
+                if (!isLiteMode && postViewModel.wantsToAddGeoHash) {
                     LocationAsHash(postViewModel)
                 }
 
-                if (postViewModel.wantsForwardZapTo) {
+                if (!isLiteMode && postViewModel.wantsForwardZapTo) {
                     ForwardZapTo(postViewModel, accountViewModel)
                 }
 
-                if (postViewModel.wantsInvoice) {
+                if (!isLiteMode && postViewModel.wantsInvoice) {
                     NewPostInvoiceRequest(
                         onSuccess = {
                             postViewModel.insertAtCursor(it)
@@ -259,39 +262,41 @@ fun GroupDMScreenContent(
                     )
                 }
 
-                if (postViewModel.wantsSecretEmoji) {
+                if (!isLiteMode && postViewModel.wantsSecretEmoji) {
                     SecretEmojiRequest {
                         postViewModel.insertAtCursor(it)
                         postViewModel.wantsSecretEmoji = false
                     }
                 }
 
-                if (postViewModel.wantsZapraiser && postViewModel.hasLnAddress()) {
+                if (!isLiteMode && postViewModel.wantsZapraiser && postViewModel.hasLnAddress()) {
                     ZapRaiserRequest(
                         stringRes(id = R.string.zapraiser),
                         postViewModel,
                     )
                 }
 
-                postViewModel.uploadState?.let { uploading ->
-                    uploading.multiOrchestrator?.let { selectedFiles ->
-                        ImageVideoDescription(
-                            selectedFiles,
-                            accountViewModel.account.settings.defaultFileServer,
-                            onAdd = { alt, server, sensitiveContent, mediaQuality, _ ->
-                                postViewModel.uploadAndHold(
-                                    accountViewModel.toastManager::toast,
-                                    context,
-                                    onceUploaded = { },
-                                )
-                                if (server.type != ServerType.NIP95) {
-                                    accountViewModel.account.settings.changeDefaultFileServer(server)
-                                }
-                            },
-                            onDelete = { postViewModel.uploadState?.deleteMediaToUpload(it) },
-                            onCancel = uploading::reset,
-                            accountViewModel = accountViewModel,
-                        )
+                if (!isLiteMode) {
+                    postViewModel.uploadState?.let { uploading ->
+                        uploading.multiOrchestrator?.let { selectedFiles ->
+                            ImageVideoDescription(
+                                selectedFiles,
+                                accountViewModel.account.settings.defaultFileServer,
+                                onAdd = { alt, server, sensitiveContent, mediaQuality, _ ->
+                                    postViewModel.uploadAndHold(
+                                        accountViewModel.toastManager::toast,
+                                        context,
+                                        onceUploaded = { },
+                                    )
+                                    if (server.type != ServerType.NIP95) {
+                                        accountViewModel.account.settings.changeDefaultFileServer(server)
+                                    }
+                                },
+                                onDelete = { postViewModel.uploadState?.deleteMediaToUpload(it) },
+                                onCancel = uploading::reset,
+                                accountViewModel = accountViewModel,
+                            )
+                        }
                     }
                 }
             }
@@ -316,7 +321,7 @@ fun GroupDMScreenContent(
             )
         }
 
-        BottomRowActions(postViewModel, accountViewModel)
+        BottomRowActions(postViewModel, accountViewModel, isLiteMode)
     }
 }
 
@@ -367,6 +372,7 @@ fun DisplayPreviews(
 private fun BottomRowActions(
     postViewModel: ChatNewMessageViewModel,
     accountViewModel: AccountViewModel,
+    isLiteMode: Boolean,
 ) {
     val scrollState = rememberScrollState()
     Row(
@@ -377,72 +383,74 @@ private fun BottomRowActions(
                 .height(50.dp),
         verticalAlignment = CenterVertically,
     ) {
-        if (postViewModel.room != null) {
-            SelectFromGallery(
-                isUploading = postViewModel.isUploadingImage,
-                tint = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier,
-            ) {
-                postViewModel.pickedMedia(it)
+        if (!isLiteMode) {
+            if (postViewModel.room != null) {
+                SelectFromGallery(
+                    isUploading = postViewModel.isUploadingImage,
+                    tint = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier,
+                ) {
+                    postViewModel.pickedMedia(it)
+                }
+            } else {
+                IconButton(
+                    onClick = { accountViewModel.toastManager.toast(R.string.messages_cant_upload_title, R.string.messages_cant_upload_explainer) },
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AddPhotoAlternate,
+                        contentDescription = stringRes(id = R.string.upload_image),
+                        modifier = Modifier.height(25.dp),
+                        tint = MaterialTheme.colorScheme.placeholderText,
+                    )
+                }
             }
-        } else {
-            IconButton(
-                onClick = { accountViewModel.toastManager.toast(R.string.messages_cant_upload_title, R.string.messages_cant_upload_explainer) },
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AddPhotoAlternate,
-                    contentDescription = stringRes(id = R.string.upload_image),
-                    modifier = Modifier.height(25.dp),
-                    tint = MaterialTheme.colorScheme.placeholderText,
+
+            if (postViewModel.room != null) {
+                TakePictureButton(
+                    onPictureTaken = { postViewModel.pickedMedia(it) },
                 )
+            } else {
+                IconButton(
+                    onClick = {
+                        accountViewModel.toastManager.toast(R.string.messages_cant_upload_title, R.string.messages_cant_upload_explainer)
+                    },
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.CameraAlt,
+                        contentDescription = stringRes(id = R.string.take_a_picture),
+                        modifier = Modifier.height(22.dp),
+                        tint = MaterialTheme.colorScheme.placeholderText,
+                    )
+                }
             }
-        }
 
-        if (postViewModel.room != null) {
-            TakePictureButton(
-                onPictureTaken = { postViewModel.pickedMedia(it) },
-            )
-        } else {
-            IconButton(
-                onClick = {
-                    accountViewModel.toastManager.toast(R.string.messages_cant_upload_title, R.string.messages_cant_upload_explainer)
-                },
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.CameraAlt,
-                    contentDescription = stringRes(id = R.string.take_a_picture),
-                    modifier = Modifier.height(22.dp),
-                    tint = MaterialTheme.colorScheme.placeholderText,
+            if (postViewModel.room != null) {
+                TakeVideoButton(
+                    onVideoTaken = { postViewModel.pickedMedia(it) },
                 )
+            } else {
+                IconButton(
+                    onClick = {
+                        accountViewModel.toastManager.toast(R.string.messages_cant_upload_title, R.string.messages_cant_upload_explainer)
+                    },
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Videocam,
+                        contentDescription = stringRes(id = R.string.record_a_video),
+                        modifier = Modifier.height(22.dp),
+                        tint = MaterialTheme.colorScheme.placeholderText,
+                    )
+                }
             }
-        }
 
-        if (postViewModel.room != null) {
-            TakeVideoButton(
-                onVideoTaken = { postViewModel.pickedMedia(it) },
-            )
-        } else {
-            IconButton(
-                onClick = {
-                    accountViewModel.toastManager.toast(R.string.messages_cant_upload_title, R.string.messages_cant_upload_explainer)
-                },
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Videocam,
-                    contentDescription = stringRes(id = R.string.record_a_video),
-                    modifier = Modifier.height(22.dp),
-                    tint = MaterialTheme.colorScheme.placeholderText,
-                )
+            ForwardZapToButton(postViewModel.wantsForwardZapTo) {
+                postViewModel.wantsForwardZapTo = !postViewModel.wantsForwardZapTo
             }
-        }
 
-        ForwardZapToButton(postViewModel.wantsForwardZapTo) {
-            postViewModel.wantsForwardZapTo = !postViewModel.wantsForwardZapTo
-        }
-
-        if (postViewModel.canAddZapRaiser) {
-            AddZapraiserButton(postViewModel.wantsZapraiser) {
-                postViewModel.wantsZapraiser = !postViewModel.wantsZapraiser
+            if (postViewModel.canAddZapRaiser) {
+                AddZapraiserButton(postViewModel.wantsZapraiser) {
+                    postViewModel.wantsZapraiser = !postViewModel.wantsZapraiser
+                }
             }
         }
 
@@ -450,17 +458,19 @@ private fun BottomRowActions(
             postViewModel.toggleMarkAsSensitive()
         }
 
-        AddGeoHashButton(postViewModel.wantsToAddGeoHash) {
-            postViewModel.wantsToAddGeoHash = !postViewModel.wantsToAddGeoHash
-        }
+        if (!isLiteMode) {
+            AddGeoHashButton(postViewModel.wantsToAddGeoHash) {
+                postViewModel.wantsToAddGeoHash = !postViewModel.wantsToAddGeoHash
+            }
 
-        AddSecretEmojiButton(postViewModel.wantsSecretEmoji) {
-            postViewModel.wantsSecretEmoji = !postViewModel.wantsSecretEmoji
-        }
+            AddSecretEmojiButton(postViewModel.wantsSecretEmoji) {
+                postViewModel.wantsSecretEmoji = !postViewModel.wantsSecretEmoji
+            }
 
-        if (postViewModel.canAddInvoice && postViewModel.hasLnAddress()) {
-            AddLnInvoiceButton(postViewModel.wantsInvoice) {
-                postViewModel.wantsInvoice = !postViewModel.wantsInvoice
+            if (postViewModel.canAddInvoice && postViewModel.hasLnAddress()) {
+                AddLnInvoiceButton(postViewModel.wantsInvoice) {
+                    postViewModel.wantsInvoice = !postViewModel.wantsInvoice
+                }
             }
         }
     }

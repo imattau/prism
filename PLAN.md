@@ -33,9 +33,9 @@
 - [x] ~~Keep core actions (read, reply, repost) usable and visually intact.~~
 
 ## Secondary Screens
-- [ ] Gate video-focused screens and components.
-- [ ] Gate discover/trending or other heavy screens.
-- [ ] Gate advanced composer add-ons if applicable (media uploads, embeds).
+- [x] ~~Gate video-focused screens and components.~~
+- [x] ~~Gate discover/trending or other heavy screens.~~
+- [x] ~~Gate advanced composer add-ons if applicable (media uploads, embeds).~~
 
 ## QA & Documentation
 - [ ] Verify setting persists across restart and applies immediately.
