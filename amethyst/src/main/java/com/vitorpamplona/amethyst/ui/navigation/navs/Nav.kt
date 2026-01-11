@@ -127,6 +127,9 @@ class Nav(
                 is Route.EditMediaServers,
                 is Route.QRDisplay,
                 is Route.ManualZapSplitPayment,
+                is Route.Room,
+                is Route.NewPublicMessage,
+                is Route.NewGroupDM,
                 is Route.GenericCommentPost,
                 -> true
                 else -> false
