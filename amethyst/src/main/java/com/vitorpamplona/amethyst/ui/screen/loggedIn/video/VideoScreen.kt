@@ -21,8 +21,13 @@
 package com.vitorpamplona.amethyst.ui.screen.loggedIn.video
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,6 +73,7 @@ import com.vitorpamplona.amethyst.service.CachedRichTextParser
 import com.vitorpamplona.amethyst.ui.actions.CrossfadeIfEnabled
 import com.vitorpamplona.amethyst.ui.components.ClickableBox
 import com.vitorpamplona.amethyst.ui.components.ObserveDisplayNip05Status
+import com.vitorpamplona.amethyst.ui.components.RichTextViewer
 import com.vitorpamplona.amethyst.ui.components.SensitivityWarning
 import com.vitorpamplona.amethyst.ui.components.ZoomableContentView
 import com.vitorpamplona.amethyst.ui.feeds.FeedContentState
@@ -119,13 +125,16 @@ import com.vitorpamplona.amethyst.ui.theme.Size55dp
 import com.vitorpamplona.amethyst.ui.theme.VideoReactionColumnPadding
 import com.vitorpamplona.amethyst.ui.theme.placeholderText
 import com.vitorpamplona.quartz.experimental.nip95.header.FileStorageHeaderEvent
+import com.vitorpamplona.quartz.nip01Core.core.EmptyTagList
 import com.vitorpamplona.quartz.nip01Core.core.toImmutableListOfLists
 import com.vitorpamplona.quartz.nip10Notes.TextNoteEvent
 import com.vitorpamplona.quartz.nip68Picture.PictureEvent
 import com.vitorpamplona.quartz.nip71Video.VideoEvent
 import com.vitorpamplona.quartz.nip94FileMetadata.FileHeaderEvent
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun VideoScreen(
@@ -424,8 +433,23 @@ private fun RenderVideoOrPictureNote(
     accountViewModel: AccountViewModel,
     nav: INav,
 ) {
+    val captionVisible = remember(note.idHex) { mutableStateOf(true) }
+    val captionTrigger = remember(note.idHex) { mutableStateOf(0) }
+
+    LaunchedEffect(note.idHex, captionTrigger.value) {
+        captionVisible.value = true
+        delay(4.seconds)
+        captionVisible.value = false
+    }
+
     Column(Modifier.fillMaxSize(1f), verticalArrangement = Arrangement.Center) {
-        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+        Row(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
             val noteEvent = remember { note.event }
             if (noteEvent is PictureEvent) {
                 val backgroundColor = remember { mutableStateOf(Color.Transparent) }
@@ -467,9 +491,18 @@ private fun RenderVideoOrPictureNote(
         }
     }
 
+    val captionInteractionSource = remember { MutableInteractionSource() }
     Row(modifier = Modifier.fillMaxSize(1f).navigationBarsPadding(), verticalAlignment = Alignment.Bottom) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-            RenderAuthorInformation(note, nav, accountViewModel)
+        Column(
+            Modifier
+                .weight(1f)
+                .clickable(
+                    interactionSource = captionInteractionSource,
+                    indication = null,
+                ) { captionTrigger.value += 1 },
+            verticalArrangement = Arrangement.Center,
+        ) {
+            RenderAuthorInformation(note, nav, accountViewModel, captionVisible.value)
         }
 
         Column(
@@ -487,6 +520,7 @@ private fun RenderAuthorInformation(
     note: Note,
     nav: INav,
     accountViewModel: AccountViewModel,
+    captionVisible: Boolean,
 ) {
     Row(modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         NoteAuthorPicture(note, Size55dp, accountViewModel = accountViewModel, nav = nav)
@@ -525,6 +559,54 @@ private fun RenderAuthorInformation(
                     RenderAllRelayList(baseNote = note, accountViewModel = accountViewModel, nav = nav)
                 }
             }
+            if (FeatureFlags.isPrism) {
+                VideoCaptionOverlay(note, accountViewModel, nav, captionVisible)
+            }
+        }
+    }
+}
+
+@Composable
+private fun VideoCaptionOverlay(
+    note: Note,
+    accountViewModel: AccountViewModel,
+    nav: INav,
+    visible: Boolean,
+) {
+    val content =
+        remember(note) {
+            note.event
+                ?.content
+                ?.trim()
+                .orEmpty()
+        }
+    if (content.isBlank()) return
+
+    val tags = remember(note) { note.event?.tags?.toImmutableListOfLists() ?: EmptyTagList }
+    val backgroundColor = remember { mutableStateOf(Color.Transparent) }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(),
+        exit = fadeOut(),
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .padding(top = 6.dp, end = 10.dp)
+                    .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+        ) {
+            RichTextViewer(
+                content = content,
+                canPreview = false,
+                quotesLeft = 0,
+                modifier = Modifier.fillMaxWidth(),
+                tags = tags,
+                backgroundColor = backgroundColor,
+                accountViewModel = accountViewModel,
+                nav = nav,
+            )
         }
     }
 }
