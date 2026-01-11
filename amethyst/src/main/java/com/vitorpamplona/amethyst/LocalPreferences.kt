@@ -44,6 +44,8 @@ import com.vitorpamplona.quartz.nip01Core.crypto.KeyPair
 import com.vitorpamplona.quartz.nip01Core.metadata.MetadataEvent
 import com.vitorpamplona.quartz.nip02FollowList.ContactListEvent
 import com.vitorpamplona.quartz.nip17Dm.settings.ChatMessageRelayListEvent
+import com.vitorpamplona.quartz.nip19Bech32.Nip19Parser
+import com.vitorpamplona.quartz.nip19Bech32.entities.NPub
 import com.vitorpamplona.quartz.nip19Bech32.toNpub
 import com.vitorpamplona.quartz.nip28PublicChat.list.ChannelListEvent
 import com.vitorpamplona.quartz.nip37Drafts.privateOutbox.PrivateOutboxRelayListEvent
@@ -81,6 +83,7 @@ data class AccountInfo(
     val hasPrivKey: Boolean = false,
     val loggedInWithExternalSigner: Boolean = false,
     val isTransient: Boolean = false,
+    val externalSignerPackageName: String? = null,
 )
 
 private object PrefKeys {
@@ -171,17 +174,28 @@ object LocalPreferences {
                         }
 
                     if (!newSystemOfAccounts.isNullOrEmpty()) {
-                        savedAccounts.emit(newSystemOfAccounts)
+                        val refreshedAccounts = newSystemOfAccounts.map(::refreshAccountInfoFromPrefs)
+                        savedAccounts.emit(refreshedAccounts)
+                        if (refreshedAccounts != newSystemOfAccounts) {
+                            edit {
+                                putString(PrefKeys.ALL_ACCOUNT_INFO, JsonMapper.toJson(refreshedAccounts))
+                            }
+                        }
                     } else {
                         val oldAccounts = getString(PrefKeys.SAVED_ACCOUNTS, null)?.split(COMMA) ?: listOf()
 
                         val migrated =
                             oldAccounts.map { npub ->
+                                val prefs = encryptedPreferences(npub)
+                                val loggedInWithExternalSigner = prefs.getBoolean(PrefKeys.LOGIN_WITH_EXTERNAL_SIGNER, false)
+                                val hasPrivKey = (prefs.getString(PrefKeys.NOSTR_PRIVKEY, "") ?: "").isNotBlank()
+                                val externalSignerPackageName = prefs.getString(PrefKeys.SIGNER_PACKAGE_NAME, null)
                                 AccountInfo(
                                     npub,
-                                    encryptedPreferences(npub).getBoolean(PrefKeys.LOGIN_WITH_EXTERNAL_SIGNER, false),
-                                    (encryptedPreferences(npub).getString(PrefKeys.NOSTR_PRIVKEY, "") ?: "").isNotBlank(),
+                                    hasPrivKey,
+                                    loggedInWithExternalSigner,
                                     false,
+                                    externalSignerPackageName,
                                 )
                             }
 
@@ -215,6 +229,30 @@ object LocalPreferences {
             }
         }
 
+    private fun refreshAccountInfoFromPrefs(accountInfo: AccountInfo): AccountInfo {
+        val prefs = encryptedPreferences(accountInfo.npub)
+        val loggedInWithExternalSigner = prefs.getBoolean(PrefKeys.LOGIN_WITH_EXTERNAL_SIGNER, accountInfo.loggedInWithExternalSigner)
+        val hasPrivKey = (prefs.getString(PrefKeys.NOSTR_PRIVKEY, "") ?: "").isNotBlank()
+        val externalSignerPackageName =
+            prefs.getString(PrefKeys.SIGNER_PACKAGE_NAME, accountInfo.externalSignerPackageName)
+
+        return if (
+            loggedInWithExternalSigner == accountInfo.loggedInWithExternalSigner &&
+            hasPrivKey == accountInfo.hasPrivKey &&
+            externalSignerPackageName == accountInfo.externalSignerPackageName
+        ) {
+            accountInfo
+        } else {
+            AccountInfo(
+                npub = accountInfo.npub,
+                hasPrivKey = hasPrivKey,
+                loggedInWithExternalSigner = loggedInWithExternalSigner,
+                isTransient = accountInfo.isTransient,
+                externalSignerPackageName = externalSignerPackageName,
+            )
+        }
+    }
+
     private val prefsDirPath: String
         get() = "${Amethyst.instance.appContext.filesDir.parent}/shared_prefs/"
 
@@ -231,6 +269,7 @@ object LocalPreferences {
                 accountSettings.isWriteable(),
                 accountSettings.externalSignerPackageName != null,
                 accountSettings.transientAccount,
+                accountSettings.externalSignerPackageName,
             )
         updateCurrentAccount(accInfo)
         addAccount(accInfo)
@@ -387,7 +426,26 @@ object LocalPreferences {
         Log.d("LocalPreferences", "Saved to encrypted storage")
     }
 
-    suspend fun loadAccountConfigFromEncryptedStorage(): AccountSettings? = currentAccount()?.let { loadAccountConfigFromEncryptedStorage(it) }
+    suspend fun loadAccountConfigFromEncryptedStorage(): AccountSettings? {
+        val current = currentAccount()
+        if (current != null) {
+            loadAccountConfigFromEncryptedStorage(current)?.let { return it }
+        }
+
+        val accounts = savedAccounts()
+        for (account in accounts.filter { !it.isTransient } + accounts.filter { it.isTransient }) {
+            loadAccountConfigFromEncryptedStorage(account.npub)?.let {
+                updateCurrentAccount(account)
+                return it
+            }
+            accountSettingsFromInfo(account)?.let {
+                updateCurrentAccount(account)
+                return it
+            }
+        }
+
+        return null
+    }
 
     fun saveSharedSettings(
         sharedSettings: UiSettings,
@@ -449,7 +507,10 @@ object LocalPreferences {
 
                 return@withContext with(encryptedPreferences(npub)) {
                     val privKey = getString(PrefKeys.NOSTR_PRIVKEY, null)
-                    val pubKey = getString(PrefKeys.NOSTR_PUBKEY, null) ?: return@with null
+                    val pubKey =
+                        getString(PrefKeys.NOSTR_PUBKEY, null)
+                            ?: npub?.let { pubKeyFromNpub(it) }
+                            ?: return@with null
                     val externalSignerPackageName =
                         getString(PrefKeys.SIGNER_PACKAGE_NAME, null)
                             ?: if (getBoolean(PrefKeys.LOGIN_WITH_EXTERNAL_SIGNER, false)) "com.greenart7c3.nostrsigner" else null
@@ -538,6 +599,23 @@ object LocalPreferences {
             }
         Log.d("LocalPreferences", "Loaded account from file $npub")
         return result
+    }
+
+    private fun pubKeyFromNpub(npub: String): String? {
+        val parsed = Nip19Parser.uriToRoute(npub)?.entity
+        return if (parsed is NPub) parsed.hex else null
+    }
+
+    private fun accountSettingsFromInfo(accountInfo: AccountInfo): AccountSettings? {
+        if (!accountInfo.loggedInWithExternalSigner) {
+            return null
+        }
+        val hex = pubKeyFromNpub(accountInfo.npub) ?: return null
+        return AccountSettings(
+            keyPair = KeyPair(pubKey = hex.hexToByteArray()),
+            transientAccount = accountInfo.isTransient,
+            externalSignerPackageName = accountInfo.externalSignerPackageName ?: "com.greenart7c3.nostrsigner",
+        )
     }
 
     private inline fun <reified T : Any> SharedPreferences.parseOrNull(key: String): T? {
