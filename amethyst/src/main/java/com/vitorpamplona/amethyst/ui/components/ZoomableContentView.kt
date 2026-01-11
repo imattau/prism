@@ -121,6 +121,7 @@ fun ZoomableContentView(
     roundedCorner: Boolean,
     contentScale: ContentScale,
     accountViewModel: AccountViewModel,
+    showControls: Boolean = true,
 ) {
     var dialogOpen by remember(content) { mutableStateOf(false) }
 
@@ -139,6 +140,7 @@ fun ZoomableContentView(
         is MediaUrlVideo ->
             SensitivityWarning(content.contentWarning != null, accountViewModel) {
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    val borderModifier = if (roundedCorner) MaterialTheme.colorScheme.imageModifier else Modifier
                     VideoView(
                         videoUri = content.url,
                         mimeType = content.mimeType,
@@ -147,13 +149,14 @@ fun ZoomableContentView(
                         authorName = content.authorName,
                         dimensions = content.dim,
                         blurhash = content.blurhash,
-                        roundedCorner = roundedCorner,
+                        borderModifier = borderModifier,
                         contentScale = contentScale,
                         nostrUriCallback = content.uri,
                         onDialog = {
                             dialogOpen = true
                         },
                         accountViewModel = accountViewModel,
+                        showControls = showControls,
                     )
                 }
             }
@@ -170,17 +173,19 @@ fun ZoomableContentView(
         is MediaLocalVideo ->
             content.localFile?.let {
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    val borderModifier = if (roundedCorner) MaterialTheme.colorScheme.imageModifier else Modifier
                     VideoView(
                         videoUri = it.toUri().toString(),
                         mimeType = content.mimeType,
                         title = content.description,
                         artworkUri = content.artworkUri,
                         authorName = content.authorName,
-                        roundedCorner = roundedCorner,
+                        borderModifier = borderModifier,
                         contentScale = contentScale,
                         nostrUriCallback = content.uri,
                         onDialog = { dialogOpen = true },
                         accountViewModel = accountViewModel,
+                        showControls = showControls,
                     )
                 }
             }

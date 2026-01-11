@@ -36,6 +36,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerControlView
 import androidx.media3.ui.PlayerView
 import com.vitorpamplona.amethyst.service.playback.composable.controls.RenderControlButtons
 import com.vitorpamplona.amethyst.service.playback.composable.mediaitem.LoadedMediaItem
@@ -89,21 +90,31 @@ fun RenderVideoPlayer(
                             ContentScale.Inside -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                             else -> AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH
                         }
-
-                    if (showControls) {
-                        onDialog?.let { innerOnDialog ->
-                            setFullscreenButtonClickListener {
-                                controllerState.controller?.pause()
-                                innerOnDialog(it)
-                            }
+                }
+            },
+            update = { view ->
+                view.useController = showControls
+                if (showControls) {
+                    view.showController()
+                    controllerVisible.value = true
+                    onControllerVisibilityChanged?.let { callback -> callback(true) }
+                    onDialog?.let { innerOnDialog ->
+                        view.setFullscreenButtonClickListener {
+                            controllerState.controller?.pause()
+                            innerOnDialog(it)
                         }
-                        setControllerVisibilityListener(
-                            PlayerView.ControllerVisibilityListener { visible ->
-                                controllerVisible.value = visible == View.VISIBLE
-                                onControllerVisibilityChanged?.let { callback -> callback(visible == View.VISIBLE) }
-                            },
-                        )
                     }
+                    view.setControllerVisibilityListener(
+                        PlayerControlView.VisibilityListener { visible ->
+                            controllerVisible.value = visible == View.VISIBLE
+                            onControllerVisibilityChanged?.let { callback -> callback(visible == View.VISIBLE) }
+                        },
+                    )
+                } else {
+                    view.hideController()
+                    controllerVisible.value = false
+                    onControllerVisibilityChanged?.let { callback -> callback(false) }
+                    view.setControllerVisibilityListener(null as PlayerControlView.VisibilityListener?)
                 }
             },
         )
@@ -118,8 +129,6 @@ fun RenderVideoPlayer(
                 Modifier.align(Alignment.TopEnd),
                 accountViewModel,
             )
-        } else {
-            controllerState.controller?.volume = 0f
         }
     }
 }

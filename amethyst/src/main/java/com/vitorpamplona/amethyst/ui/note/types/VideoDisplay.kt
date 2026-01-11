@@ -43,6 +43,7 @@ fun JustVideoDisplay(
     roundedCorner: Boolean,
     contentScale: ContentScale,
     accountViewModel: AccountViewModel,
+    showControls: Boolean = true,
 ) {
     val videoEvent = (note.event as? VideoEvent) ?: return
     val event = (videoEvent as? Event) ?: return
@@ -86,6 +87,7 @@ fun JustVideoDisplay(
             roundedCorner = roundedCorner,
             contentScale = contentScale,
             accountViewModel = accountViewModel,
+            showControls = showControls,
         )
     }
 }

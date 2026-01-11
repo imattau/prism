@@ -38,7 +38,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -225,7 +224,7 @@ fun VideoScreen(
                 }
             },
         floatingButton = {
-            if (!FeatureFlags.isPrism || controlsVisible.value) {
+            if (!FeatureFlags.isPrism) {
                 NewImageButton(accountViewModel, nav, videoFeedContentState::sendToTop)
             }
         },
@@ -478,6 +477,7 @@ fun SlidingCarousel(
                         onUserInteraction = onUserInteraction,
                         onToggleControls = onToggleControls,
                         onDetailsOverlayVisibleChange = onDetailsOverlayVisibleChange,
+                        onNavScrollToTop = videoFeedContentState::sendToTop,
                     )
                 }
             }
@@ -547,13 +547,16 @@ private fun RenderVideoOrPictureNote(
     onUserInteraction: () -> Unit,
     onToggleControls: () -> Unit,
     onDetailsOverlayVisibleChange: (Boolean) -> Unit,
+    onNavScrollToTop: () -> Unit,
 ) {
     val captionVisible = remember(note.idHex) { mutableStateOf(true) }
     val captionTrigger = remember(note.idHex) { mutableStateOf(0) }
+    val playbackControlsVisible = remember(note.idHex) { mutableStateOf(false) }
+    val detailsVisible = remember(note.idHex) { mutableStateOf(false) }
 
     LaunchedEffect(note.idHex, captionTrigger.value) {
         captionVisible.value = true
-        delay(10.seconds)
+        delay(2.seconds)
         captionVisible.value = false
     }
 
@@ -563,12 +566,20 @@ private fun RenderVideoOrPictureNote(
             .pointerInput(note.idHex) {
                 detectTapGestures(
                     onTap = { offset ->
-                        val centerStart = size.height / 3f
-                        val centerEnd = size.height * 2f / 3f
-                        if (offset.y < centerStart || offset.y > centerEnd) {
+                        val bottomStart = size.height * 2f / 3f
+                        val middleStart = size.height / 3f
+                        val middleEnd = size.height * 2f / 3f
+                        if (offset.y >= bottomStart) {
                             onToggleControls()
-                        } else {
+                        } else if (offset.y in middleStart..middleEnd) {
+                            playbackControlsVisible.value = !playbackControlsVisible.value
+                        }
+                    },
+                    onLongPress = { offset ->
+                        val bottomStart = size.height * 2f / 3f
+                        if (offset.y >= bottomStart) {
                             onUserInteraction()
+                            detailsVisible.value = true
                         }
                     },
                 )
@@ -591,7 +602,7 @@ private fun RenderVideoOrPictureNote(
             } else if (noteEvent is FileStorageHeaderEvent) {
                 FileStorageHeaderDisplay(note, false, ContentScale.Fit, accountViewModel)
             } else if (noteEvent is VideoEvent) {
-                JustVideoDisplay(note, false, ContentScale.Fit, accountViewModel)
+                JustVideoDisplay(note, false, ContentScale.Fit, accountViewModel, showControls = playbackControlsVisible.value)
             } else if (noteEvent is TextNoteEvent) {
                 val mediaState =
                     remember(noteEvent) {
@@ -616,6 +627,7 @@ private fun RenderVideoOrPictureNote(
                             roundedCorner = false,
                             contentScale = ContentScale.Fit,
                             accountViewModel = accountViewModel,
+                            showControls = playbackControlsVisible.value,
                         )
                     }
                 }
@@ -623,7 +635,6 @@ private fun RenderVideoOrPictureNote(
         }
     }
 
-    val detailsVisible = remember(note.idHex) { mutableStateOf(false) }
     LaunchedEffect(detailsVisible.value) {
         onDetailsOverlayVisibleChange(detailsVisible.value)
     }
@@ -645,8 +656,27 @@ private fun RenderVideoOrPictureNote(
                 onUserInteraction = onUserInteraction,
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.85f),
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth(0.92f)
+                        .padding(start = 10.dp, bottom = 10.dp),
+            )
+        }
+    }
+
+    if (FeatureFlags.isPrism) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding(),
+            contentAlignment = Alignment.BottomStart,
+        ) {
+            VideoCaptionOverlay(
+                note = note,
+                accountViewModel = accountViewModel,
+                nav = nav,
+                visible = captionVisible.value,
+                modifier = Modifier.padding(start = 10.dp, bottom = 10.dp),
             )
         }
     }
@@ -657,31 +687,33 @@ private fun RenderVideoOrPictureNote(
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
-            Row(modifier = Modifier.fillMaxSize(1f).navigationBarsPadding(), verticalAlignment = Alignment.Bottom) {
+            Box(modifier = Modifier.fillMaxSize(1f).navigationBarsPadding()) {
                 Column(
                     Modifier
-                        .weight(1f)
+                        .align(Alignment.TopStart)
+                        .padding(top = 12.dp)
                         .combinedClickable(
                             onClick = {
                                 onUserInteraction()
                                 captionTrigger.value += 1
                             },
-                            onLongClick = {
-                                onUserInteraction()
-                                detailsVisible.value = true
-                            },
-                        ).heightIn(min = 220.dp),
+                        ),
                     verticalArrangement = Arrangement.Center,
                 ) {
                     RenderAuthorInformation(note, nav, accountViewModel, captionVisible.value)
                 }
 
                 Column(
-                    modifier = AuthorInfoVideoFeed,
+                    modifier = AuthorInfoVideoFeed.align(Alignment.CenterEnd),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    ReactionsColumn(note, accountViewModel, nav)
+                    ReactionsColumn(
+                        baseNote = note,
+                        accountViewModel = accountViewModel,
+                        nav = nav,
+                        onNavScrollToTop = onNavScrollToTop,
+                    )
                 }
             }
         }
@@ -695,7 +727,7 @@ private fun RenderAuthorInformation(
     accountViewModel: AccountViewModel,
     captionVisible: Boolean,
 ) {
-    Row(modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = Modifier.padding(start = 10.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         NoteAuthorPicture(note, Size55dp, accountViewModel = accountViewModel, nav = nav)
 
         Spacer(modifier = DoubleHorzSpacer)
@@ -741,9 +773,7 @@ private fun RenderAuthorInformation(
                     RenderAllRelayList(baseNote = note, accountViewModel = accountViewModel, nav = nav)
                 }
             }
-            if (FeatureFlags.isPrism) {
-                VideoCaptionOverlay(note, accountViewModel, nav, captionVisible)
-            }
+            // Caption overlay is rendered in the bottom-left overlay area for Prism.
         }
     }
 }
@@ -754,6 +784,7 @@ private fun VideoCaptionOverlay(
     accountViewModel: AccountViewModel,
     nav: INav,
     visible: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     val content =
         remember(note) {
@@ -779,8 +810,7 @@ private fun VideoCaptionOverlay(
     ) {
         Column(
             modifier =
-                Modifier
-                    .padding(top = 6.dp, end = 10.dp)
+                modifier
                     .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
                     .padding(horizontal = 8.dp, vertical = 6.dp),
         ) {
@@ -851,78 +881,98 @@ private fun VideoDetailsOverlay(
                 modifier
                     .padding(top = 6.dp, end = 10.dp)
                     .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(12.dp))
-                    .pointerInput(Unit) {
-                        var totalDrag = 0f
-                        detectVerticalDragGestures(
-                            onDragEnd = {
-                                if (totalDrag > 60f) {
-                                    onDismiss()
-                                }
-                                totalDrag = 0f
-                            },
-                            onVerticalDrag = { _, dragAmount ->
-                                if (dragAmount > 0f) {
-                                    totalDrag += dragAmount
-                                }
-                            },
-                        )
-                    }.padding(horizontal = 10.dp, vertical = 8.dp)
-                    .verticalScroll(scrollState),
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
         ) {
-            title?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = overlayTextColor,
-                    maxLines = 2,
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(18.dp)
+                        .pointerInput(Unit) {
+                            var totalDrag = 0f
+                            detectVerticalDragGestures(
+                                onDragEnd = {
+                                    if (totalDrag > 60f) {
+                                        onDismiss()
+                                    }
+                                    totalDrag = 0f
+                                },
+                                onVerticalDrag = { _, dragAmount ->
+                                    if (dragAmount > 0f) {
+                                        totalDrag += dragAmount
+                                    }
+                                },
+                            )
+                        },
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .width(42.dp)
+                            .height(4.dp)
+                            .background(Color.White.copy(alpha = 0.45f), RoundedCornerShape(999.dp)),
                 )
             }
-            Text(
-                text = timeLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = overlayMutedColor,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-            if (!hasDetails) {
-                Text(
-                    text = "No details available",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = overlayMutedColor,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
-            }
-            if (content.isNotBlank()) {
-                val richTextStyle = MaterialTheme.typography.bodySmall.copy(color = overlayTextColor)
-                CompositionLocalProvider(LocalTextStyle provides richTextStyle) {
-                    RichTextViewer(
-                        content = content,
-                        canPreview = false,
-                        quotesLeft = 0,
-                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                        tags = event.tags.toImmutableListOfLists(),
-                        backgroundColor = remember { mutableStateOf(Color.Transparent) },
-                        accountViewModel = accountViewModel,
-                        nav = nav,
+
+            Column(
+                modifier = Modifier.verticalScroll(scrollState),
+            ) {
+                title?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = overlayTextColor,
+                        maxLines = 2,
                     )
                 }
-            }
-            if (hashtags.isNotEmpty()) {
-                FlowRow(
-                    modifier = Modifier.padding(top = 6.dp).wrapContentWidth(),
-                ) {
-                    hashtags.forEach { tag ->
-                        val normalized = tag.lowercase()
-                        ClickableTextColor(
-                            text = "#$normalized ",
-                            style = MaterialTheme.typography.labelSmall,
-                            linkColor = overlayMutedColor,
-                        ) {
-                            accountViewModel.account.settings.changeDefaultStoriesFollowList("Hashtag/$normalized")
-                            accountViewModel.feedStates.videoFeed.checkKeysInvalidateDataAndSendToTop()
-                            accountViewModel.dataSources().video.hardRefresh(accountViewModel.account)
-                            onDismiss()
-                            onUserInteraction()
+                Text(
+                    text = timeLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = overlayMutedColor,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+                if (!hasDetails) {
+                    Text(
+                        text = "No details available",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = overlayMutedColor,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+                if (content.isNotBlank()) {
+                    val richTextStyle = MaterialTheme.typography.bodySmall.copy(color = overlayTextColor)
+                    CompositionLocalProvider(LocalTextStyle provides richTextStyle) {
+                        RichTextViewer(
+                            content = content,
+                            canPreview = false,
+                            quotesLeft = 0,
+                            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                            tags = event.tags.toImmutableListOfLists(),
+                            backgroundColor = remember { mutableStateOf(Color.Transparent) },
+                            accountViewModel = accountViewModel,
+                            nav = nav,
+                        )
+                    }
+                }
+                if (hashtags.isNotEmpty()) {
+                    FlowRow(
+                        modifier = Modifier.padding(top = 6.dp).wrapContentWidth(),
+                    ) {
+                        hashtags.forEach { tag ->
+                            val normalized = tag.lowercase()
+                            ClickableTextColor(
+                                text = "#$normalized ",
+                                style = MaterialTheme.typography.labelSmall,
+                                linkColor = overlayMutedColor,
+                            ) {
+                                accountViewModel.account.settings.changeDefaultStoriesFollowList("Hashtag/$normalized")
+                                accountViewModel.feedStates.videoFeed.checkKeysInvalidateDataAndSendToTop()
+                                accountViewModel.dataSources().video.hardRefresh(accountViewModel.account)
+                                onDismiss()
+                                onUserInteraction()
+                            }
                         }
                     }
                 }
@@ -971,6 +1021,7 @@ fun ReactionsColumn(
     baseNote: Note,
     accountViewModel: AccountViewModel,
     nav: INav,
+    onNavScrollToTop: () -> Unit,
 ) {
 //    var wantsToReplyTo by remember { mutableStateOf<Note?>(null) }
 
@@ -1059,6 +1110,10 @@ fun ReactionsColumn(
             animationModifier = Size35Modifier,
             nav = nav,
         )
+        if (FeatureFlags.isPrism) {
+            Spacer(modifier = Modifier.height(12.dp))
+            NewImageButton(accountViewModel, nav, onNavScrollToTop)
+        }
     }
 }
 
