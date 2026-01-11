@@ -272,6 +272,13 @@ fun ProfileScreen(
 
     UserProfileFilterAssemblerSubscription(baseUser, accountViewModel.dataSources().profile)
 
+    LaunchedEffect(baseUser.pubkeyHex) {
+        galleryFeedViewModel.invalidateData()
+        followsFeedViewModel.invalidateData()
+        followersFeedViewModel.invalidateData()
+        zapFeedViewModel.invalidateData()
+    }
+
     RenderSurface { tabRowModifier: Modifier, pagerModifier: Modifier ->
         RenderScreen(
             baseUser,

@@ -20,28 +20,38 @@
  */
 package com.vitorpamplona.amethyst.ui.screen.loggedIn.video
 
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vitorpamplona.amethyst.FeatureFlags
+import com.vitorpamplona.amethyst.LocalPreferences
 import com.vitorpamplona.amethyst.R
 import com.vitorpamplona.amethyst.service.relayClient.reqCommand.user.observeUserPicture
 import com.vitorpamplona.amethyst.ui.components.RobohashFallbackAsyncImage
+import com.vitorpamplona.amethyst.ui.navigation.drawer.AccountSwitchBottomSheet
 import com.vitorpamplona.amethyst.ui.navigation.navs.INav
 import com.vitorpamplona.amethyst.ui.navigation.routes.Route
 import com.vitorpamplona.amethyst.ui.navigation.topbars.FeedFilterSpinner
 import com.vitorpamplona.amethyst.ui.navigation.topbars.ShorterTopAppBar
 import com.vitorpamplona.amethyst.ui.navigation.topbars.UserDrawerSearchTopBar
 import com.vitorpamplona.amethyst.ui.note.SearchIcon
+import com.vitorpamplona.amethyst.ui.screen.AccountStateViewModel
 import com.vitorpamplona.amethyst.ui.screen.FeedDefinition
 import com.vitorpamplona.amethyst.ui.screen.TopNavFilterState
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.AccountViewModel
@@ -50,17 +60,30 @@ import com.vitorpamplona.amethyst.ui.stringRes
 import com.vitorpamplona.amethyst.ui.theme.HeaderPictureModifier
 import com.vitorpamplona.amethyst.ui.theme.Size22Modifier
 import com.vitorpamplona.amethyst.ui.theme.placeholderText
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StoriesTopBar(
     accountViewModel: AccountViewModel,
+    accountStateViewModel: AccountStateViewModel,
     nav: INav,
 ) {
     if (FeatureFlags.isPrism) {
         var menuExpanded by remember { mutableStateOf(false) }
         var backupDialogOpen by remember { mutableStateOf(false) }
+        var accountSwitcherOpen by remember { mutableStateOf(false) }
+        var logoutDialogOpen by remember { mutableStateOf(false) }
         val userProfile = accountViewModel.userProfile()
+        val scope = rememberCoroutineScope()
+        val sheetState =
+            rememberModalBottomSheetState(
+                skipPartiallyExpanded = true,
+                confirmValueChange = { it != SheetValue.PartiallyExpanded },
+            )
+        val accounts by LocalPreferences.accountsFlow().collectAsStateWithLifecycle()
+        val currentAccount =
+            accounts?.firstOrNull { it.npub == accountStateViewModel.currentAccountNPub() }
 
         ShorterTopAppBar(
             title = {
@@ -108,56 +131,72 @@ fun StoriesTopBar(
             onDismissRequest = { menuExpanded = false },
         ) {
             DropdownMenuItem(
-                text = { androidx.compose.material3.Text(stringRes(id = R.string.profile)) },
+                text = { Text(stringRes(id = R.string.profile)) },
                 onClick = {
                     menuExpanded = false
                     nav.nav(Route.Profile(userProfile.pubkeyHex))
                 },
             )
             DropdownMenuItem(
-                text = { androidx.compose.material3.Text(stringRes(id = R.string.preferences)) },
+                text = { Text(stringRes(id = R.string.account_switch_select_account)) },
+                onClick = {
+                    menuExpanded = false
+                    accountSwitcherOpen = true
+                    scope.launch { sheetState.show() }
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringRes(id = R.string.log_out)) },
+                enabled = currentAccount != null,
+                onClick = {
+                    menuExpanded = false
+                    logoutDialogOpen = currentAccount != null
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringRes(id = R.string.preferences)) },
                 onClick = {
                     menuExpanded = false
                     nav.nav(Route.Settings)
                 },
             )
             DropdownMenuItem(
-                text = { androidx.compose.material3.Text(stringRes(id = R.string.user_preferences)) },
+                text = { Text(stringRes(id = R.string.user_preferences)) },
                 onClick = {
                     menuExpanded = false
                     nav.nav(Route.UserSettings)
                 },
             )
             DropdownMenuItem(
-                text = { androidx.compose.material3.Text(stringRes(id = R.string.security_filters)) },
+                text = { Text(stringRes(id = R.string.security_filters)) },
                 onClick = {
                     menuExpanded = false
                     nav.nav(Route.SecurityFilters)
                 },
             )
             DropdownMenuItem(
-                text = { androidx.compose.material3.Text(stringRes(id = R.string.privacy_options)) },
+                text = { Text(stringRes(id = R.string.privacy_options)) },
                 onClick = {
                     menuExpanded = false
                     nav.nav(Route.PrivacyOptions)
                 },
             )
             DropdownMenuItem(
-                text = { androidx.compose.material3.Text(stringRes(id = R.string.relay_setup)) },
+                text = { Text(stringRes(id = R.string.relay_setup)) },
                 onClick = {
                     menuExpanded = false
                     nav.nav(Route.EditRelays)
                 },
             )
             DropdownMenuItem(
-                text = { androidx.compose.material3.Text(stringRes(id = R.string.media_servers)) },
+                text = { Text(stringRes(id = R.string.media_servers)) },
                 onClick = {
                     menuExpanded = false
                     nav.nav(Route.EditMediaServers)
                 },
             )
             DropdownMenuItem(
-                text = { androidx.compose.material3.Text(stringRes(id = R.string.show_npub_as_a_qr_code)) },
+                text = { Text(stringRes(id = R.string.show_npub_as_a_qr_code)) },
                 onClick = {
                     menuExpanded = false
                     nav.nav(Route.QRDisplay(userProfile.pubkeyHex))
@@ -165,13 +204,58 @@ fun StoriesTopBar(
             )
             accountViewModel.account.settings.keyPair.privKey?.let {
                 DropdownMenuItem(
-                    text = { androidx.compose.material3.Text(stringRes(id = R.string.backup_keys)) },
+                    text = { Text(stringRes(id = R.string.backup_keys)) },
                     onClick = {
                         menuExpanded = false
                         backupDialogOpen = true
                     },
                 )
             }
+        }
+
+        if (accountSwitcherOpen) {
+            ModalBottomSheet(
+                onDismissRequest = {
+                    scope
+                        .launch { sheetState.hide() }
+                        .invokeOnCompletion {
+                            if (!sheetState.isVisible) {
+                                accountSwitcherOpen = false
+                            }
+                        }
+                },
+                sheetState = sheetState,
+            ) {
+                AccountSwitchBottomSheet(
+                    accountViewModel = accountViewModel,
+                    accountStateViewModel = accountStateViewModel,
+                )
+            }
+        }
+
+        if (logoutDialogOpen && currentAccount != null) {
+            AlertDialog(
+                title = { Text(text = stringRes(R.string.log_out)) },
+                text = { Text(text = stringRes(R.string.are_you_sure_you_want_to_log_out)) },
+                onDismissRequest = { logoutDialogOpen = false },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            logoutDialogOpen = false
+                            accountStateViewModel.logOff(currentAccount)
+                        },
+                    ) {
+                        Text(text = stringRes(R.string.log_out))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { logoutDialogOpen = false },
+                    ) {
+                        Text(text = stringRes(R.string.cancel))
+                    }
+                },
+            )
         }
     } else {
         UserDrawerSearchTopBar(accountViewModel, nav) {

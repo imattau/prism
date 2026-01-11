@@ -88,6 +88,7 @@ import com.vitorpamplona.amethyst.ui.note.types.FileHeaderDisplay
 import com.vitorpamplona.amethyst.ui.note.types.FileStorageHeaderDisplay
 import com.vitorpamplona.amethyst.ui.note.types.JustVideoDisplay
 import com.vitorpamplona.amethyst.ui.note.types.PictureDisplay
+import com.vitorpamplona.amethyst.ui.screen.AccountStateViewModel
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.AccountViewModel
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.VideoFilterAssemblerSubscription
 import com.vitorpamplona.amethyst.ui.stringRes
@@ -110,11 +111,13 @@ import com.vitorpamplona.quartz.nip94FileMetadata.FileHeaderEvent
 @Composable
 fun VideoScreen(
     accountViewModel: AccountViewModel,
+    accountStateViewModel: AccountStateViewModel,
     nav: INav,
 ) {
     VideoScreen(
         accountViewModel.feedStates.videoFeed,
         accountViewModel,
+        accountStateViewModel,
         nav,
     )
 }
@@ -123,6 +126,7 @@ fun VideoScreen(
 fun VideoScreen(
     videoFeedContentState: FeedContentState,
     accountViewModel: AccountViewModel,
+    accountStateViewModel: AccountStateViewModel,
     nav: INav,
 ) {
     WatchLifecycleAndUpdateModel(videoFeedContentState)
@@ -138,7 +142,7 @@ fun VideoScreen(
     DisappearingScaffold(
         isInvertedLayout = false,
         topBar = {
-            StoriesTopBar(accountViewModel, nav)
+            StoriesTopBar(accountViewModel, accountStateViewModel, nav)
         },
         bottomBar = {
             AppBottomBar(Route.Video, accountViewModel) { route ->

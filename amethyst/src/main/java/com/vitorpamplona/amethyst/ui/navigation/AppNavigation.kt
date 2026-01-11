@@ -139,7 +139,7 @@ fun AppNavigation(
                 composable<Route.Notification> { NotificationScreen(accountViewModel, nav) }
             }
 
-            composable<Route.Video> { VideoScreen(accountViewModel, nav) }
+            composable<Route.Video> { VideoScreen(accountViewModel, accountStateViewModel, nav) }
 
             composableFromEnd<Route.Lists> { ListOfPeopleListsScreen(accountViewModel, nav) }
             composableFromEndArgs<Route.MyPeopleListView> { PeopleListScreen(it.dTag, accountViewModel, nav) }
