@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
+import com.vitorpamplona.amethyst.FeatureFlags
 import com.vitorpamplona.amethyst.R
 import com.vitorpamplona.amethyst.ui.screen.AccountStateViewModel
 
@@ -133,7 +134,7 @@ class LoginViewModel : ViewModel() {
             accountStateViewModel.login(
                 key = key.text,
                 password = password.text,
-                transientAccount = isTemporary,
+                transientAccount = if (FeatureFlags.isPrism) false else isTemporary,
             ) {
                 processingLogin = false
                 if (it != null) {
@@ -150,7 +151,7 @@ class LoginViewModel : ViewModel() {
             processingLogin = true
             accountStateViewModel.login(
                 key = key.text,
-                transientAccount = isTemporary,
+                transientAccount = if (FeatureFlags.isPrism) false else isTemporary,
                 loginWithExternalSigner = true,
                 packageName = packageName,
             ) {

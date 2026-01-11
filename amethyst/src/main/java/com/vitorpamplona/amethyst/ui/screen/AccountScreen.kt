@@ -29,15 +29,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vitorpamplona.amethyst.Amethyst
 import com.vitorpamplona.amethyst.R
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.LoggedInPage
 import com.vitorpamplona.amethyst.ui.screen.loggedOff.LoginOrSignupScreen
 import com.vitorpamplona.amethyst.ui.stringRes
+import com.vitorpamplona.amethyst.ui.theme.FontScale
 import com.vitorpamplona.quartz.utils.Log
 
 @Composable
@@ -108,11 +112,20 @@ fun LoggedInSetup(
     state: AccountState.LoggedIn,
     accountStateViewModel: AccountStateViewModel,
 ) {
+    val fontScaleIndex by state.account.settings.fontScaleIndex
+        .collectAsStateWithLifecycle()
+    val density = LocalDensity.current
+    val multiplier = FontScale.multiplierFor(fontScaleIndex)
+
     SetAccountCentricViewModelStore(state) {
-        LoggedInPage(
-            account = state.account,
-            route = state.route,
-            accountStateViewModel = accountStateViewModel,
-        )
+        CompositionLocalProvider(
+            LocalDensity provides Density(density.density, density.fontScale * multiplier),
+        ) {
+            LoggedInPage(
+                account = state.account,
+                route = state.route,
+                accountStateViewModel = accountStateViewModel,
+            )
+        }
     }
 }

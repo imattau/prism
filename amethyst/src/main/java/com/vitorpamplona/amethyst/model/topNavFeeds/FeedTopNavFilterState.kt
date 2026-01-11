@@ -32,7 +32,9 @@ import com.vitorpamplona.amethyst.model.topNavFeeds.allFollows.AllFollowsFeedFlo
 import com.vitorpamplona.amethyst.model.topNavFeeds.allUserFollows.AllUserFollowsFeedFlow
 import com.vitorpamplona.amethyst.model.topNavFeeds.allUserFollows.Kind3UserFollowsFeedFlow
 import com.vitorpamplona.amethyst.model.topNavFeeds.aroundMe.AroundMeFeedFlow
+import com.vitorpamplona.amethyst.model.topNavFeeds.aroundMe.LocationTopNavFilter
 import com.vitorpamplona.amethyst.model.topNavFeeds.global.GlobalFeedFlow
+import com.vitorpamplona.amethyst.model.topNavFeeds.hashtag.HashtagTopNavFilter
 import com.vitorpamplona.amethyst.model.topNavFeeds.noteBased.NoteFeedFlow
 import com.vitorpamplona.amethyst.model.topNavFeeds.unknown.UnknownFeedFlow
 import com.vitorpamplona.amethyst.service.location.LocationState
@@ -44,6 +46,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onStart
@@ -62,6 +65,11 @@ class FeedTopNavFilterState(
     val signer: NostrSigner,
     val scope: CoroutineScope,
 ) {
+    private fun relayList(
+        outboxRelays: Set<NormalizedRelayUrl>,
+        proxyRelays: Set<NormalizedRelayUrl>,
+    ): Set<NormalizedRelayUrl> = proxyRelays.ifEmpty { outboxRelays }
+
     fun loadFlowsFor(listName: String): IFeedFlowsType =
         when (listName) {
             GLOBAL_FOLLOWS -> GlobalFeedFlow(followsRelays, proxyRelays)
@@ -69,14 +77,21 @@ class FeedTopNavFilterState(
             ALL_USER_FOLLOWS -> AllUserFollowsFeedFlow(allFollows, followsRelays, blockedRelays, proxyRelays)
             KIND3_FOLLOWS -> Kind3UserFollowsFeedFlow(kind3Follows, followsRelays, blockedRelays, proxyRelays)
             AROUND_ME -> AroundMeFeedFlow(locationFlow, followsRelays, proxyRelays)
-            else -> {
-                val note = LocalCache.checkGetOrCreateAddressableNote(listName)
-                if (note != null) {
-                    NoteFeedFlow(note.flow().metadata.stateFlow, signer, followsRelays, blockedRelays, proxyRelays, caches)
-                } else {
-                    UnknownFeedFlow(listName)
+            else ->
+                when {
+                    listName.startsWith("Hashtag/") ->
+                        SingleHashtagFeedFlow(listName.removePrefix("Hashtag/"), followsRelays, proxyRelays, ::relayList)
+                    listName.startsWith("Geohash/") ->
+                        SingleGeohashFeedFlow(listName.removePrefix("Geohash/"), followsRelays, proxyRelays, ::relayList)
+                    else -> {
+                        val note = LocalCache.checkGetOrCreateAddressableNote(listName)
+                        if (note != null) {
+                            NoteFeedFlow(note.flow().metadata.stateFlow, signer, followsRelays, blockedRelays, proxyRelays, caches)
+                        } else {
+                            UnknownFeedFlow(listName)
+                        }
+                    }
                 }
-            }
         }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -92,4 +107,52 @@ class FeedTopNavFilterState(
                 SharingStarted.Eagerly,
                 loadFlowsFor(feedFilterListName.value).startValue(),
             )
+}
+
+private class SingleHashtagFeedFlow(
+    val hashtag: String,
+    val outboxRelays: StateFlow<Set<NormalizedRelayUrl>>,
+    val proxyRelays: StateFlow<Set<NormalizedRelayUrl>>,
+    val relayList: (Set<NormalizedRelayUrl>, Set<NormalizedRelayUrl>) -> Set<NormalizedRelayUrl>,
+) : IFeedFlowsType {
+    private fun convert(
+        outboxRelays: Set<NormalizedRelayUrl>,
+        proxyRelays: Set<NormalizedRelayUrl>,
+    ): HashtagTopNavFilter =
+        HashtagTopNavFilter(
+            hashtags = setOf(hashtag),
+            relayList = relayList(outboxRelays, proxyRelays),
+        )
+
+    override fun flow() = combine(outboxRelays, proxyRelays, ::convert)
+
+    override fun startValue(): IFeedTopNavFilter = convert(outboxRelays.value, proxyRelays.value)
+
+    override suspend fun startValue(collector: kotlinx.coroutines.flow.FlowCollector<IFeedTopNavFilter>) {
+        collector.emit(startValue())
+    }
+}
+
+private class SingleGeohashFeedFlow(
+    val geohash: String,
+    val outboxRelays: StateFlow<Set<NormalizedRelayUrl>>,
+    val proxyRelays: StateFlow<Set<NormalizedRelayUrl>>,
+    val relayList: (Set<NormalizedRelayUrl>, Set<NormalizedRelayUrl>) -> Set<NormalizedRelayUrl>,
+) : IFeedFlowsType {
+    private fun convert(
+        outboxRelays: Set<NormalizedRelayUrl>,
+        proxyRelays: Set<NormalizedRelayUrl>,
+    ): LocationTopNavFilter =
+        LocationTopNavFilter(
+            geotags = setOf(geohash),
+            relayList = relayList(outboxRelays, proxyRelays),
+        )
+
+    override fun flow() = combine(outboxRelays, proxyRelays, ::convert)
+
+    override fun startValue(): IFeedTopNavFilter = convert(outboxRelays.value, proxyRelays.value)
+
+    override suspend fun startValue(collector: kotlinx.coroutines.flow.FlowCollector<IFeedTopNavFilter>) {
+        collector.emit(startValue())
+    }
 }

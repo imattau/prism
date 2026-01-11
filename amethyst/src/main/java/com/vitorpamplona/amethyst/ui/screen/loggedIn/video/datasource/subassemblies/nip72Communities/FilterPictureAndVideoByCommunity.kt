@@ -27,6 +27,8 @@ import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAnd
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoKinds
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoLegacyKTags
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoLegacyKinds
+import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoTextNoteKTags
+import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoTextNoteKinds
 import com.vitorpamplona.quartz.nip01Core.relay.client.pool.RelayBasedFilter
 import com.vitorpamplona.quartz.nip01Core.relay.filters.Filter
 import com.vitorpamplona.quartz.nip01Core.relay.normalizer.NormalizedRelayUrl
@@ -37,76 +39,120 @@ fun filterPictureAndVideoCommunity(
     community: String,
     authors: Set<String>?,
     since: Long? = null,
+    includeTextNotes: Boolean = false,
 ): List<RelayBasedFilter> {
     val authors = authors?.sorted()
-    return listOf(
+    return buildList {
         // approved
-        RelayBasedFilter(
-            relay = relay,
-            filter =
-                Filter(
-                    authors = authors,
-                    kinds = CommunityPostApprovalEvent.KIND_LIST,
-                    tags =
-                        mapOf(
-                            "a" to listOf(community),
-                            "k" to PictureAndVideoKTags,
-                        ),
-                    limit = 200,
-                    since = since,
-                ),
-        ),
+        add(
+            RelayBasedFilter(
+                relay = relay,
+                filter =
+                    Filter(
+                        authors = authors,
+                        kinds = CommunityPostApprovalEvent.KIND_LIST,
+                        tags =
+                            mapOf(
+                                "a" to listOf(community),
+                                "k" to PictureAndVideoKTags,
+                            ),
+                        limit = 200,
+                        since = since,
+                    ),
+            ),
+        )
         // not approved
-        RelayBasedFilter(
-            relay = relay,
-            filter =
-                Filter(
-                    authors = authors,
-                    tags = mapOf("a" to listOf(community)),
-                    kinds = PictureAndVideoKinds,
-                    limit = 200,
-                    since = since,
-                ),
-        ),
+        add(
+            RelayBasedFilter(
+                relay = relay,
+                filter =
+                    Filter(
+                        authors = authors,
+                        tags = mapOf("a" to listOf(community)),
+                        kinds = PictureAndVideoKinds,
+                        limit = 200,
+                        since = since,
+                    ),
+            ),
+        )
         // approved
-        RelayBasedFilter(
-            relay = relay,
-            filter =
-                Filter(
-                    authors = authors,
-                    kinds = CommunityPostApprovalEvent.KIND_LIST,
-                    tags =
-                        mapOf(
-                            "a" to listOf(community),
-                            "k" to PictureAndVideoLegacyKTags,
-                        ),
-                    limit = 200,
-                    since = since,
-                ),
-        ),
+        add(
+            RelayBasedFilter(
+                relay = relay,
+                filter =
+                    Filter(
+                        authors = authors,
+                        kinds = CommunityPostApprovalEvent.KIND_LIST,
+                        tags =
+                            mapOf(
+                                "a" to listOf(community),
+                                "k" to PictureAndVideoLegacyKTags,
+                            ),
+                        limit = 200,
+                        since = since,
+                    ),
+            ),
+        )
         // not approved
-        RelayBasedFilter(
-            relay = relay,
-            filter =
-                Filter(
-                    authors = authors,
-                    tags =
-                        mapOf(
-                            "a" to listOf(community),
-                            "m" to LegacyMimeTypes,
+        add(
+            RelayBasedFilter(
+                relay = relay,
+                filter =
+                    Filter(
+                        authors = authors,
+                        tags =
+                            mapOf(
+                                "a" to listOf(community),
+                                "m" to LegacyMimeTypes,
+                            ),
+                        kinds = PictureAndVideoLegacyKinds,
+                        limit = 200,
+                        since = since,
+                    ),
+            ),
+        )
+        if (includeTextNotes) {
+            // approved
+            add(
+                RelayBasedFilter(
+                    relay = relay,
+                    filter =
+                        Filter(
+                            authors = authors,
+                            kinds = CommunityPostApprovalEvent.KIND_LIST,
+                            tags =
+                                mapOf(
+                                    "a" to listOf(community),
+                                    "k" to PictureAndVideoTextNoteKTags,
+                                ),
+                            limit = 200,
+                            since = since,
                         ),
-                    kinds = PictureAndVideoLegacyKinds,
-                    limit = 200,
-                    since = since,
                 ),
-        ),
-    )
+            )
+            // not approved
+            add(
+                RelayBasedFilter(
+                    relay = relay,
+                    filter =
+                        Filter(
+                            authors = authors,
+                            tags = mapOf("a" to listOf(community)),
+                            kinds = PictureAndVideoTextNoteKinds,
+                            limit = 200,
+                            since = since,
+                        ),
+                ),
+            )
+        }
+    }
 }
 
 fun filterPictureAndVideoByCommunity(
     communitySet: SingleCommunityTopNavPerRelayFilterSet,
     since: SincePerRelayMap?,
     defaultSince: Long? = null,
+    includeTextNotes: Boolean = false,
 ): List<RelayBasedFilter> {
     if (communitySet.set.isEmpty()) return emptyList()
 
@@ -117,6 +163,7 @@ fun filterPictureAndVideoByCommunity(
                 community = it.value.community,
                 authors = it.value.authors,
                 since = since?.get(it.key)?.time ?: defaultSince,
+                includeTextNotes = includeTextNotes,
             )
         }.flatten()
 }

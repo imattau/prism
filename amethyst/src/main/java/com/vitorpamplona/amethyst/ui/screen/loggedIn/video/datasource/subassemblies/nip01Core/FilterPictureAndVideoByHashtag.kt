@@ -25,6 +25,7 @@ import com.vitorpamplona.amethyst.service.relays.SincePerRelayMap
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.LegacyMimeTypes
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoKinds
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoLegacyKinds
+import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoTextNoteKinds
 import com.vitorpamplona.quartz.nip01Core.relay.client.pool.RelayBasedFilter
 import com.vitorpamplona.quartz.nip01Core.relay.filters.Filter
 import com.vitorpamplona.quartz.nip01Core.relay.normalizer.NormalizedRelayUrl
@@ -34,41 +35,61 @@ fun filterPictureAndVideoHashtag(
     relay: NormalizedRelayUrl,
     hashtags: Set<String>,
     since: Long? = null,
+    includeTextNotes: Boolean = false,
 ): List<RelayBasedFilter> {
     val hashtags = hashtags.flatMap(::hashtagAlts).distinct().sorted()
 
-    return listOf(
-        RelayBasedFilter(
-            relay = relay,
-            filter =
-                Filter(
-                    kinds = PictureAndVideoKinds,
-                    tags = mapOf("t" to hashtags),
-                    limit = 100,
-                    since = since,
-                ),
-        ),
-        RelayBasedFilter(
-            relay = relay,
-            filter =
-                Filter(
-                    kinds = PictureAndVideoLegacyKinds,
-                    tags =
-                        mapOf(
-                            "t" to hashtags,
-                            "m" to LegacyMimeTypes,
+    return buildList {
+        add(
+            RelayBasedFilter(
+                relay = relay,
+                filter =
+                    Filter(
+                        kinds = PictureAndVideoKinds,
+                        tags = mapOf("t" to hashtags),
+                        limit = 100,
+                        since = since,
+                    ),
+            ),
+        )
+        add(
+            RelayBasedFilter(
+                relay = relay,
+                filter =
+                    Filter(
+                        kinds = PictureAndVideoLegacyKinds,
+                        tags =
+                            mapOf(
+                                "t" to hashtags,
+                                "m" to LegacyMimeTypes,
+                            ),
+                        limit = 100,
+                        since = since,
+                    ),
+            ),
+        )
+        if (includeTextNotes) {
+            add(
+                RelayBasedFilter(
+                    relay = relay,
+                    filter =
+                        Filter(
+                            kinds = PictureAndVideoTextNoteKinds,
+                            tags = mapOf("t" to hashtags),
+                            limit = 100,
+                            since = since,
                         ),
-                    limit = 100,
-                    since = since,
                 ),
-        ),
-    )
+            )
+        }
+    }
 }
 
 fun filterPictureAndVideoByHashtag(
     hashSet: HashtagTopNavPerRelayFilterSet,
     since: SincePerRelayMap?,
     defaultSince: Long? = null,
+    includeTextNotes: Boolean = false,
 ): List<RelayBasedFilter> {
     if (hashSet.set.isEmpty()) return emptyList()
 
@@ -81,6 +102,7 @@ fun filterPictureAndVideoByHashtag(
                     relay = relayHashSet.key,
                     hashtags = relayHashSet.value.hashtags,
                     since = since?.get(relayHashSet.key)?.time ?: defaultSince,
+                    includeTextNotes = includeTextNotes,
                 )
             }
         }.flatten()

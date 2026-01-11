@@ -91,11 +91,21 @@ class AccountStateViewModel : ViewModel() {
     }
 
     private suspend fun loginWithDefaultAccount(route: Route? = null) {
-        val accountSettings = LocalPreferences.loadAccountConfigFromEncryptedStorage()
+        try {
+            val accountSettings = LocalPreferences.loadAccountConfigFromEncryptedStorage()
+            Log.d(
+                "AccountState",
+                "loginWithDefaultAccount loaded=${accountSettings != null} hasPrivKey=${accountSettings?.keyPair?.privKey != null} externalSigner=${accountSettings?.externalSignerPackageName}",
+            )
 
-        if (accountSettings != null) {
-            startUI(accountSettings, route)
-        } else {
+            if (accountSettings != null) {
+                startUI(accountSettings, route)
+            } else {
+                requestLoginUI()
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Log.e("AccountState", "loginWithDefaultAccount failed", e)
             requestLoginUI()
         }
     }

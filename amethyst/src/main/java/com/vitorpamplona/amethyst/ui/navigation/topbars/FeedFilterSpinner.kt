@@ -108,7 +108,12 @@ fun FeedFilterSpinner(
     val currentText by
         remember(placeholderCode, options) {
             derivedStateOf {
-                selected?.name?.name(context) ?: selectAnOption
+                selected?.name?.name(context)
+                    ?: when {
+                        placeholderCode.startsWith("Hashtag/") -> "#${placeholderCode.removePrefix("Hashtag/")}"
+                        placeholderCode.startsWith("Geohash/") -> "/g/${placeholderCode.removePrefix("Geohash/")}"
+                        else -> selectAnOption
+                    }
             }
         }
 

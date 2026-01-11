@@ -29,6 +29,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vitorpamplona.amethyst.Amethyst
+import com.vitorpamplona.amethyst.FeatureFlags
 import com.vitorpamplona.amethyst.debugState
 import com.vitorpamplona.amethyst.model.Account
 import com.vitorpamplona.amethyst.model.LocalCache
@@ -85,8 +86,8 @@ class MainActivity : AppCompatActivity() {
 
         Log.d("ActivityLifecycle", "MainActivity.onResume $this")
 
-        // starts muted every time
-        DEFAULT_MUTED_SETTING.value = true
+        // starts muted by default, except for prism
+        DEFAULT_MUTED_SETTING.value = !FeatureFlags.isPrism
     }
 
     override fun onPause() {

@@ -20,6 +20,7 @@
  */
 package com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.subassemblies
 
+import com.vitorpamplona.amethyst.FeatureFlags
 import com.vitorpamplona.amethyst.model.User
 import com.vitorpamplona.amethyst.model.topNavFeeds.allFollows.AllFollowsTopNavPerRelayFilterSet
 import com.vitorpamplona.amethyst.model.topNavFeeds.aroundMe.LocationTopNavPerRelayFilterSet
@@ -60,15 +61,16 @@ class VideoOutboxEventsFilterSubAssembler(
     ): List<RelayBasedFilter>? {
         val feedSettings = key.followsPerRelay()
         val defaultSince = key.feedState.videoFeed.lastNoteCreatedAtWhenFullyLoaded.value
+        val includeTextNotes = FeatureFlags.isPrism
         return when (feedSettings) {
-            is AllCommunitiesTopNavPerRelayFilterSet -> filterPictureAndVideoByAllCommunities(feedSettings, since, defaultSince)
-            is AllFollowsTopNavPerRelayFilterSet -> filterPictureAndVideoByFollows(feedSettings, since, defaultSince)
-            is AuthorsTopNavPerRelayFilterSet -> filterPictureAndVideoByAuthors(feedSettings, since, defaultSince)
-            is GlobalTopNavPerRelayFilterSet -> filterPictureAndVideoGlobal(feedSettings, since, defaultSince ?: TimeUtils.oneWeekAgo())
-            is HashtagTopNavPerRelayFilterSet -> filterPictureAndVideoByHashtag(feedSettings, since, defaultSince ?: TimeUtils.oneMonthAgo())
-            is LocationTopNavPerRelayFilterSet -> filterPictureAndVideoByGeohash(feedSettings, since, defaultSince)
-            is MutedAuthorsTopNavPerRelayFilterSet -> filterPictureAndVideoByAuthors(feedSettings, since, defaultSince)
-            is SingleCommunityTopNavPerRelayFilterSet -> filterPictureAndVideoByCommunity(feedSettings, since, defaultSince)
+            is AllCommunitiesTopNavPerRelayFilterSet -> filterPictureAndVideoByAllCommunities(feedSettings, since, defaultSince, includeTextNotes)
+            is AllFollowsTopNavPerRelayFilterSet -> filterPictureAndVideoByFollows(feedSettings, since, defaultSince, includeTextNotes)
+            is AuthorsTopNavPerRelayFilterSet -> filterPictureAndVideoByAuthors(feedSettings, since, defaultSince, includeTextNotes)
+            is GlobalTopNavPerRelayFilterSet -> filterPictureAndVideoGlobal(feedSettings, since, defaultSince ?: TimeUtils.oneWeekAgo(), includeTextNotes)
+            is HashtagTopNavPerRelayFilterSet -> filterPictureAndVideoByHashtag(feedSettings, since, defaultSince ?: TimeUtils.oneMonthAgo(), includeTextNotes)
+            is LocationTopNavPerRelayFilterSet -> filterPictureAndVideoByGeohash(feedSettings, since, defaultSince, includeTextNotes)
+            is MutedAuthorsTopNavPerRelayFilterSet -> filterPictureAndVideoByAuthors(feedSettings, since, defaultSince, includeTextNotes)
+            is SingleCommunityTopNavPerRelayFilterSet -> filterPictureAndVideoByCommunity(feedSettings, since, defaultSince, includeTextNotes)
             else -> emptyList()
         }
     }
@@ -114,5 +116,10 @@ class VideoOutboxEventsFilterSubAssembler(
     ) {
         super.endSub(key, subId)
         userJobMap[key]?.forEach { it.cancel() }
+    }
+
+    fun hardRefresh(user: User) {
+        restartSubscriptionsForUser(user)
+        invalidateFilters()
     }
 }

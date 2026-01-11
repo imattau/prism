@@ -120,6 +120,9 @@ class AccountSettings(
     val defaultNotificationFollowList: MutableStateFlow<String> = MutableStateFlow(GLOBAL_FOLLOWS),
     val defaultDiscoveryFollowList: MutableStateFlow<String> = MutableStateFlow(GLOBAL_FOLLOWS),
     val videoFeedVideosOnly: MutableStateFlow<Boolean> = MutableStateFlow(false),
+    val videoFeedNewestFirst: MutableStateFlow<Boolean> = MutableStateFlow(true),
+    val videoFeedLastPositions: MutableStateFlow<Map<String, String>> = MutableStateFlow(mapOf()),
+    val fontScaleIndex: MutableStateFlow<Int> = MutableStateFlow(2),
     var zapPaymentRequest: MutableStateFlow<Nip47WalletConnect.Nip47URINorm?> = MutableStateFlow(null),
     var hideDeleteRequestDialog: Boolean = false,
     var hideBlockAlertDialog: Boolean = false,
@@ -205,6 +208,33 @@ class AccountSettings(
             return true
         }
         return false
+    }
+
+    fun setVideoFeedNewestFirst(enabled: Boolean): Boolean {
+        if (videoFeedNewestFirst.value != enabled) {
+            videoFeedNewestFirst.tryEmit(enabled)
+            saveAccountSettings()
+            return true
+        }
+        return false
+    }
+
+    fun setVideoFeedLastPosition(
+        feedCode: String,
+        noteId: String,
+    ) {
+        val current = videoFeedLastPositions.value
+        if (current[feedCode] == noteId) return
+
+        videoFeedLastPositions.tryEmit(current + (feedCode to noteId))
+        saveAccountSettings()
+    }
+
+    fun setFontScaleIndex(index: Int) {
+        if (fontScaleIndex.value != index) {
+            fontScaleIndex.tryEmit(index)
+            saveAccountSettings()
+        }
     }
 
     // ---

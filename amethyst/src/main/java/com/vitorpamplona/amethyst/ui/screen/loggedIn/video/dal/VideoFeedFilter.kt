@@ -63,7 +63,9 @@ class VideoFeedFilter(
             "-" +
             account.settings.defaultStoriesFollowList.value +
             "-" +
-            account.settings.videoFeedVideosOnly.value
+            account.settings.videoFeedVideosOnly.value +
+            "-" +
+            account.settings.videoFeedNewestFirst.value
 
     override fun limit() = 300
 
@@ -188,5 +190,10 @@ class VideoFeedFilter(
             hiddenUsers = account.hiddenUsers.flow.value,
         )
 
-    override fun sort(items: Set<Note>): List<Note> = items.sortedWith(DefaultFeedOrder)
+    override fun sort(items: Set<Note>): List<Note> =
+        if (account.settings.videoFeedNewestFirst.value) {
+            items.sortedWith(DefaultFeedOrder)
+        } else {
+            items.sortedWith(compareBy<Note> { it.createdAt() }.thenBy { it.idHex })
+        }
 }

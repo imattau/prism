@@ -47,4 +47,8 @@ class VideoFilterAssembler(
     override fun invalidateFilters() = group.forEach { it.invalidateFilters() }
 
     override fun destroy() = group.forEach { it.destroy() }
+
+    fun hardRefresh(account: Account) {
+        group.forEach { it.hardRefresh(account.userProfile()) }
+    }
 }

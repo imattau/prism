@@ -25,6 +25,7 @@ import com.vitorpamplona.amethyst.service.relays.SincePerRelayMap
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.LegacyMimeTypes
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoKinds
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoLegacyKinds
+import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoTextNoteKinds
 import com.vitorpamplona.quartz.nip01Core.relay.client.pool.RelayBasedFilter
 import com.vitorpamplona.quartz.nip01Core.relay.filters.Filter
 import com.vitorpamplona.quartz.nip01Core.relay.normalizer.NormalizedRelayUrl
@@ -33,41 +34,61 @@ fun filterPictureAndVideoGeohash(
     relay: NormalizedRelayUrl,
     geotags: Set<String>,
     since: Long? = null,
+    includeTextNotes: Boolean = false,
 ): List<RelayBasedFilter> {
     val geoHashes = geotags.sorted()
 
-    return listOf(
-        RelayBasedFilter(
-            relay = relay,
-            filter =
-                Filter(
-                    kinds = PictureAndVideoKinds,
-                    tags = mapOf("g" to geoHashes),
-                    limit = 200,
-                    since = since,
-                ),
-        ),
-        RelayBasedFilter(
-            relay = relay,
-            filter =
-                Filter(
-                    kinds = PictureAndVideoLegacyKinds,
-                    tags =
-                        mapOf(
-                            "g" to geoHashes,
-                            "m" to LegacyMimeTypes,
+    return buildList {
+        add(
+            RelayBasedFilter(
+                relay = relay,
+                filter =
+                    Filter(
+                        kinds = PictureAndVideoKinds,
+                        tags = mapOf("g" to geoHashes),
+                        limit = 200,
+                        since = since,
+                    ),
+            ),
+        )
+        add(
+            RelayBasedFilter(
+                relay = relay,
+                filter =
+                    Filter(
+                        kinds = PictureAndVideoLegacyKinds,
+                        tags =
+                            mapOf(
+                                "g" to geoHashes,
+                                "m" to LegacyMimeTypes,
+                            ),
+                        limit = 200,
+                        since = since,
+                    ),
+            ),
+        )
+        if (includeTextNotes) {
+            add(
+                RelayBasedFilter(
+                    relay = relay,
+                    filter =
+                        Filter(
+                            kinds = PictureAndVideoTextNoteKinds,
+                            tags = mapOf("g" to geoHashes),
+                            limit = 200,
+                            since = since,
                         ),
-                    limit = 200,
-                    since = since,
                 ),
-        ),
-    )
+            )
+        }
+    }
 }
 
 fun filterPictureAndVideoByGeohash(
     geoSet: LocationTopNavPerRelayFilterSet,
     since: SincePerRelayMap?,
     defaultSince: Long? = null,
+    includeTextNotes: Boolean = false,
 ): List<RelayBasedFilter> {
     if (geoSet.set.isEmpty()) return emptyList()
 
@@ -80,6 +101,7 @@ fun filterPictureAndVideoByGeohash(
                     relay = it.key,
                     geotags = it.value.geotags,
                     since = since?.get(it.key)?.time ?: defaultSince,
+                    includeTextNotes = includeTextNotes,
                 )
             }
         }.flatten()

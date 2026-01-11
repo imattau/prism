@@ -25,6 +25,7 @@ import com.vitorpamplona.amethyst.service.relays.SincePerRelayMap
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.LegacyMimeTypeMap
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoKinds
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoLegacyKinds
+import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoTextNoteKinds
 import com.vitorpamplona.quartz.nip01Core.relay.client.pool.RelayBasedFilter
 import com.vitorpamplona.quartz.nip01Core.relay.filters.Filter
 
@@ -32,31 +33,49 @@ fun filterPictureAndVideoGlobal(
     relays: GlobalTopNavPerRelayFilterSet,
     since: SincePerRelayMap?,
     defaultSince: Long? = null,
+    includeTextNotes: Boolean = false,
 ): List<RelayBasedFilter> {
     if (relays.set.isEmpty()) return emptyList()
 
     return relays.set.flatMap {
         val since = since?.get(it.key)?.time ?: defaultSince
-        listOf(
-            RelayBasedFilter(
-                relay = it.key,
-                filter =
-                    Filter(
-                        kinds = PictureAndVideoKinds,
-                        limit = 50,
-                        since = since,
+        buildList {
+            add(
+                RelayBasedFilter(
+                    relay = it.key,
+                    filter =
+                        Filter(
+                            kinds = PictureAndVideoKinds,
+                            limit = 50,
+                            since = since,
+                        ),
+                ),
+            )
+            add(
+                RelayBasedFilter(
+                    relay = it.key,
+                    filter =
+                        Filter(
+                            kinds = PictureAndVideoLegacyKinds,
+                            tags = LegacyMimeTypeMap,
+                            limit = 50,
+                            since = since,
+                        ),
+                ),
+            )
+            if (includeTextNotes) {
+                add(
+                    RelayBasedFilter(
+                        relay = it.key,
+                        filter =
+                            Filter(
+                                kinds = PictureAndVideoTextNoteKinds,
+                                limit = 100,
+                                since = since,
+                            ),
                     ),
-            ),
-            RelayBasedFilter(
-                relay = it.key,
-                filter =
-                    Filter(
-                        kinds = PictureAndVideoLegacyKinds,
-                        tags = LegacyMimeTypeMap,
-                        limit = 50,
-                        since = since,
-                    ),
-            ),
-        )
+                )
+            }
+        }
     }
 }

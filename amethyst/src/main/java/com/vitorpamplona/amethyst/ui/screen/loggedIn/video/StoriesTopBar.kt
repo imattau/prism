@@ -20,10 +20,14 @@
  */
 package com.vitorpamplona.amethyst.ui.screen.loggedIn.video
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -84,6 +88,8 @@ fun StoriesTopBar(
         val accounts by LocalPreferences.accountsFlow().collectAsStateWithLifecycle()
         val currentAccount =
             accounts?.firstOrNull { it.npub == accountStateViewModel.currentAccountNPub() }
+        val newestFirst by accountViewModel.account.settings.videoFeedNewestFirst
+            .collectAsStateWithLifecycle()
 
         ShorterTopAppBar(
             title = {
@@ -113,6 +119,25 @@ fun StoriesTopBar(
                 }
             },
             actions = {
+                IconButton(onClick = { accountViewModel.account.settings.setVideoFeedNewestFirst(!newestFirst) }) {
+                    val icon =
+                        if (newestFirst) {
+                            Icons.Filled.ArrowDownward
+                        } else {
+                            Icons.Filled.ArrowUpward
+                        }
+                    val description =
+                        if (newestFirst) {
+                            stringRes(id = R.string.video_feed_order_newest_first)
+                        } else {
+                            stringRes(id = R.string.video_feed_order_oldest_first)
+                        }
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = description,
+                        tint = MaterialTheme.colorScheme.placeholderText,
+                    )
+                }
                 IconButton(onClick = { nav.nav(Route.Search) }) {
                     SearchIcon(modifier = Size22Modifier, MaterialTheme.colorScheme.placeholderText)
                 }

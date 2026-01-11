@@ -31,6 +31,7 @@ fun filterPictureAndVideoByFollows(
     followsSet: AllFollowsTopNavPerRelayFilterSet,
     since: SincePerRelayMap?,
     defaultSince: Long? = null,
+    includeTextNotes: Boolean = false,
 ): List<RelayBasedFilter> {
     if (followsSet.set.isEmpty()) return emptyList()
 
@@ -40,16 +41,16 @@ fun filterPictureAndVideoByFollows(
 
         listOfNotNull(
             it.value.authors?.let { authors ->
-                filterPictureAndVideoAuthors(relay, authors, since)
+                filterPictureAndVideoAuthors(relay, authors, since, includeTextNotes)
             },
             it.value.geotags?.let { geotags ->
-                filterPictureAndVideoGeohash(relay, geotags, since)
+                filterPictureAndVideoGeohash(relay, geotags, since, includeTextNotes)
             },
             it.value.hashtags?.let { hashtags ->
-                filterPictureAndVideoHashtag(relay, hashtags, since)
+                filterPictureAndVideoHashtag(relay, hashtags, since, includeTextNotes)
             },
             it.value.communities?.let { communities ->
-                filterPictureAndVideoAllCommunities(relay, communities, since)
+                filterPictureAndVideoAllCommunities(relay, communities, since, includeTextNotes)
             },
         ).flatten()
     }

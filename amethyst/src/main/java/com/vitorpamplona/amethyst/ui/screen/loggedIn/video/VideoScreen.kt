@@ -26,15 +26,19 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clipToBounds
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,16 +47,21 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,13 +69,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.LocalTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vitorpamplona.amethyst.FeatureFlags
 import com.vitorpamplona.amethyst.R
@@ -76,6 +88,7 @@ import com.vitorpamplona.amethyst.model.Note
 import com.vitorpamplona.amethyst.service.CachedRichTextParser
 import com.vitorpamplona.amethyst.ui.actions.CrossfadeIfEnabled
 import com.vitorpamplona.amethyst.ui.components.ClickableBox
+import com.vitorpamplona.amethyst.ui.components.ClickableTextColor
 import com.vitorpamplona.amethyst.ui.components.ObserveDisplayNip05Status
 import com.vitorpamplona.amethyst.ui.components.RichTextViewer
 import com.vitorpamplona.amethyst.ui.components.SensitivityWarning
@@ -108,6 +121,7 @@ import com.vitorpamplona.amethyst.ui.note.ReplyReaction
 import com.vitorpamplona.amethyst.ui.note.RepostedIcon
 import com.vitorpamplona.amethyst.ui.note.ZapReaction
 import com.vitorpamplona.amethyst.ui.note.elements.NoteDropDownMenu
+import com.vitorpamplona.amethyst.ui.note.timeAgo
 import com.vitorpamplona.amethyst.ui.note.types.FileHeaderDisplay
 import com.vitorpamplona.amethyst.ui.note.types.FileStorageHeaderDisplay
 import com.vitorpamplona.amethyst.ui.note.types.JustVideoDisplay
@@ -130,7 +144,10 @@ import com.vitorpamplona.amethyst.ui.theme.VideoReactionColumnPadding
 import com.vitorpamplona.amethyst.ui.theme.placeholderText
 import com.vitorpamplona.quartz.experimental.nip95.header.FileStorageHeaderEvent
 import com.vitorpamplona.quartz.nip01Core.core.EmptyTagList
+import com.vitorpamplona.quartz.nip01Core.core.Event
+import com.vitorpamplona.quartz.nip01Core.core.firstTagValueFor
 import com.vitorpamplona.quartz.nip01Core.core.toImmutableListOfLists
+import com.vitorpamplona.quartz.nip01Core.tags.hashtags.hashtags
 import com.vitorpamplona.quartz.nip10Notes.TextNoteEvent
 import com.vitorpamplona.quartz.nip68Picture.PictureEvent
 import com.vitorpamplona.quartz.nip71Video.VideoEvent
@@ -161,6 +178,23 @@ fun VideoScreen(
     accountStateViewModel: AccountStateViewModel,
     nav: INav,
 ) {
+    val controlsVisible = remember { mutableStateOf(true) }
+    val controlsTrigger = remember { mutableStateOf(0) }
+    val detailsOverlayVisible = remember { mutableStateOf(false) }
+    val toggleControls = {
+        if (controlsVisible.value) {
+            controlsVisible.value = false
+        } else {
+            controlsTrigger.value += 1
+        }
+    }
+
+    LaunchedEffect(controlsTrigger.value) {
+        controlsVisible.value = true
+        delay(8.seconds)
+        controlsVisible.value = false
+    }
+
     WatchLifecycleAndUpdateModel(videoFeedContentState)
     WatchAccountForVideoScreen(videoFeedContentState = videoFeedContentState, accountViewModel = accountViewModel)
     VideoFilterAssemblerSubscription(accountViewModel)
@@ -191,7 +225,9 @@ fun VideoScreen(
                 }
             },
         floatingButton = {
-            NewImageButton(accountViewModel, nav, videoFeedContentState::sendToTop)
+            if (!FeatureFlags.isPrism || controlsVisible.value) {
+                NewImageButton(accountViewModel, nav, videoFeedContentState::sendToTop)
+            }
         },
         accountViewModel = accountViewModel,
     ) {
@@ -203,6 +239,11 @@ fun VideoScreen(
                 pagerStateKey = ScrollStateKeys.VIDEO_SCREEN,
                 accountViewModel = accountViewModel,
                 nav = nav,
+                controlsVisible = controlsVisible.value,
+                onUserInteraction = { controlsTrigger.value += 1 },
+                onToggleControls = toggleControls,
+                detailsOverlayVisible = detailsOverlayVisible.value,
+                onDetailsOverlayVisibleChange = { detailsOverlayVisible.value = it },
             )
         }
     }
@@ -233,8 +274,17 @@ fun RenderPage(
     pagerStateKey: String?,
     accountViewModel: AccountViewModel,
     nav: INav,
+    controlsVisible: Boolean,
+    onUserInteraction: () -> Unit,
+    onToggleControls: () -> Unit,
+    detailsOverlayVisible: Boolean,
+    onDetailsOverlayVisibleChange: (Boolean) -> Unit,
 ) {
     val feedState by videoFeedContentState.feedContent.collectAsStateWithLifecycle()
+    val feedCode by accountViewModel.account.settings.defaultStoriesFollowList
+        .collectAsStateWithLifecycle()
+    val lastPositions by accountViewModel.account.settings.videoFeedLastPositions
+        .collectAsStateWithLifecycle()
 
     CrossfadeIfEnabled(
         targetState = feedState,
@@ -250,7 +300,20 @@ fun RenderPage(
                 FeedError(state.errorMessage, videoFeedContentState::invalidateData)
             }
             is FeedState.Loaded -> {
-                LoadedState(state, pagerStateKey, videoFeedContentState, accountViewModel, nav)
+                LoadedState(
+                    state,
+                    pagerStateKey,
+                    videoFeedContentState,
+                    accountViewModel,
+                    nav,
+                    controlsVisible,
+                    onUserInteraction,
+                    feedCode,
+                    lastPositions,
+                    onToggleControls,
+                    detailsOverlayVisible,
+                    onDetailsOverlayVisibleChange,
+                )
             }
             is FeedState.Loading -> {
                 LoadingFeed()
@@ -266,6 +329,13 @@ private fun LoadedState(
     videoFeedContentState: FeedContentState,
     accountViewModel: AccountViewModel,
     nav: INav,
+    controlsVisible: Boolean,
+    onUserInteraction: () -> Unit,
+    feedCode: String,
+    lastPositions: Map<String, String>,
+    onToggleControls: () -> Unit,
+    detailsOverlayVisible: Boolean,
+    onDetailsOverlayVisibleChange: (Boolean) -> Unit,
 ) {
     val newNotesState = remember { mutableStateOf<List<Note>>(emptyList()) }
     val isAtTopState = remember { mutableStateOf(true) }
@@ -285,6 +355,13 @@ private fun LoadedState(
                 nav,
                 newNotesState,
                 isAtTopState,
+                controlsVisible,
+                onUserInteraction,
+                feedCode,
+                lastPositions,
+                onToggleControls,
+                detailsOverlayVisible,
+                onDetailsOverlayVisibleChange,
             )
 
             if (FeatureFlags.isPrism && newNotesState.value.isNotEmpty() && !isAtTopState.value) {
@@ -311,6 +388,13 @@ fun SlidingCarousel(
     nav: INav,
     newNotesState: androidx.compose.runtime.MutableState<List<Note>>,
     isAtTopState: androidx.compose.runtime.MutableState<Boolean>,
+    controlsVisible: Boolean,
+    onUserInteraction: () -> Unit,
+    feedCode: String,
+    lastPositions: Map<String, String>,
+    onToggleControls: () -> Unit,
+    detailsOverlayVisible: Boolean,
+    onDetailsOverlayVisibleChange: (Boolean) -> Unit,
 ) {
     val items by loaded.feed.collectAsStateWithLifecycle()
     val lastSeenTopId = remember { mutableStateOf<String?>(null) }
@@ -324,10 +408,26 @@ fun SlidingCarousel(
 
     WatchScrollToTop(videoFeedContentState, pagerState)
 
+    val restoredPositionKey = remember(feedCode) { mutableStateOf(false) }
+
+    LaunchedEffect(items.list, feedCode, lastPositions) {
+        if (restoredPositionKey.value) return@LaunchedEffect
+        val targetId = lastPositions[feedCode] ?: return@LaunchedEffect
+        val index = items.list.indexOfFirst { it.idHex == targetId }
+        if (index >= 0) {
+            pagerState.scrollToPage(index)
+        }
+        restoredPositionKey.value = true
+    }
+
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }
             .distinctUntilChanged()
             .collect { page ->
+                onUserInteraction()
+                items.list.getOrNull(page)?.idHex?.let { noteId ->
+                    accountViewModel.account.settings.setVideoFeedLastPosition(feedCode, noteId)
+                }
                 val isAtTop = page == 0
                 isAtTopState.value = isAtTop
                 if (isAtTop) {
@@ -356,6 +456,7 @@ fun SlidingCarousel(
     VerticalPager(
         state = pagerState,
         beyondViewportPageCount = 1,
+        userScrollEnabled = !detailsOverlayVisible,
         modifier = Modifier.fillMaxSize(),
         key = { index -> items.list.getOrNull(index)?.idHex ?: "$index" },
     ) { index ->
@@ -373,6 +474,10 @@ fun SlidingCarousel(
                         note,
                         accountViewModel,
                         nav,
+                        controlsVisible = controlsVisible,
+                        onUserInteraction = onUserInteraction,
+                        onToggleControls = onToggleControls,
+                        onDetailsOverlayVisibleChange = onDetailsOverlayVisibleChange,
                     )
                 }
             }
@@ -438,6 +543,10 @@ private fun RenderVideoOrPictureNote(
     note: Note,
     accountViewModel: AccountViewModel,
     nav: INav,
+    controlsVisible: Boolean,
+    onUserInteraction: () -> Unit,
+    onToggleControls: () -> Unit,
+    onDetailsOverlayVisibleChange: (Boolean) -> Unit,
 ) {
     val captionVisible = remember(note.idHex) { mutableStateOf(true) }
     val captionTrigger = remember(note.idHex) { mutableStateOf(0) }
@@ -448,7 +557,24 @@ private fun RenderVideoOrPictureNote(
         captionVisible.value = false
     }
 
-    Column(Modifier.fillMaxSize(1f), verticalArrangement = Arrangement.Center) {
+    Column(
+        Modifier
+            .fillMaxSize(1f)
+            .pointerInput(note.idHex) {
+                detectTapGestures(
+                    onTap = { offset ->
+                        val centerStart = size.height / 3f
+                        val centerEnd = size.height * 2f / 3f
+                        if (offset.y < centerStart || offset.y > centerEnd) {
+                            onToggleControls()
+                        } else {
+                            onUserInteraction()
+                        }
+                    },
+                )
+            },
+        verticalArrangement = Arrangement.Center,
+    ) {
         Row(
             Modifier
                 .weight(1f)
@@ -497,26 +623,67 @@ private fun RenderVideoOrPictureNote(
         }
     }
 
-    val captionInteractionSource = remember { MutableInteractionSource() }
-    Row(modifier = Modifier.fillMaxSize(1f).navigationBarsPadding(), verticalAlignment = Alignment.Bottom) {
-        Column(
-            Modifier
-                .weight(1f)
-                .clickable(
-                    interactionSource = captionInteractionSource,
-                    indication = null,
-                ) { captionTrigger.value += 1 },
-            verticalArrangement = Arrangement.Center,
+    val detailsVisible = remember(note.idHex) { mutableStateOf(false) }
+    LaunchedEffect(detailsVisible.value) {
+        onDetailsOverlayVisibleChange(detailsVisible.value)
+    }
+    if (FeatureFlags.isPrism && detailsVisible.value) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding()
+                    .zIndex(1f),
+            contentAlignment = Alignment.BottomStart,
         ) {
-            RenderAuthorInformation(note, nav, accountViewModel, captionVisible.value)
+            VideoDetailsOverlay(
+                note = note,
+                accountViewModel = accountViewModel,
+                nav = nav,
+                visible = true,
+                onDismiss = { detailsVisible.value = false },
+                onUserInteraction = onUserInteraction,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.85f),
+            )
         }
+    }
 
-        Column(
-            modifier = AuthorInfoVideoFeed,
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
+    if (!detailsVisible.value) {
+        AnimatedVisibility(
+            visible = controlsVisible,
+            enter = fadeIn(),
+            exit = fadeOut(),
         ) {
-            ReactionsColumn(note, accountViewModel, nav)
+            Row(modifier = Modifier.fillMaxSize(1f).navigationBarsPadding(), verticalAlignment = Alignment.Bottom) {
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .combinedClickable(
+                            onClick = {
+                                onUserInteraction()
+                                captionTrigger.value += 1
+                            },
+                            onLongClick = {
+                                onUserInteraction()
+                                detailsVisible.value = true
+                            },
+                        ).heightIn(min = 220.dp),
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    RenderAuthorInformation(note, nav, accountViewModel, captionVisible.value)
+                }
+
+                Column(
+                    modifier = AuthorInfoVideoFeed,
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    ReactionsColumn(note, accountViewModel, nav)
+                }
+            }
         }
     }
 }
@@ -540,10 +707,19 @@ private fun RenderAuthorInformation(
                 Modifier
             }
 
+        val infoColumnModifier =
+            if (FeatureFlags.isPrism) {
+                usernameModifier
+                    .heightIn(min = 65.dp)
+                    .weight(1f)
+            } else {
+                usernameModifier
+                    .height(65.dp)
+                    .weight(1f)
+            }
+
         Column(
-            usernameModifier
-                .height(65.dp)
-                .weight(1f),
+            infoColumnModifier,
             verticalArrangement = Arrangement.Center,
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -622,6 +798,135 @@ private fun VideoCaptionOverlay(
                 accountViewModel = accountViewModel,
                 nav = nav,
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun VideoDetailsOverlay(
+    note: Note,
+    accountViewModel: AccountViewModel,
+    nav: INav,
+    visible: Boolean,
+    onDismiss: () -> Unit,
+    onUserInteraction: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val event = note.event as? Event ?: return
+    val title =
+        remember(event) {
+            if (event is VideoEvent) {
+                event.title()
+            } else {
+                event.tags.firstTagValueFor("title", "subject", "name", "alt")
+            }
+        }
+    val content =
+        remember(event) {
+            event.content.trim()
+        }
+    val hashtags =
+        remember(event) {
+            event.hashtags()
+        }
+    val context = LocalContext.current
+    val timeLabel =
+        remember(note, context) {
+            timeAgo(note.createdAt(), context = context)
+        }
+    val scrollState = rememberScrollState()
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(),
+        exit = fadeOut(),
+    ) {
+        val overlayTextColor = Color.White
+        val overlayMutedColor = Color.White.copy(alpha = 0.72f)
+        val hasDetails = title != null || content.isNotBlank() || hashtags.isNotEmpty()
+
+        Column(
+            modifier =
+                modifier
+                    .padding(top = 6.dp, end = 10.dp)
+                    .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(12.dp))
+                    .pointerInput(Unit) {
+                        var totalDrag = 0f
+                        detectVerticalDragGestures(
+                            onDragEnd = {
+                                if (totalDrag > 60f) {
+                                    onDismiss()
+                                }
+                                totalDrag = 0f
+                            },
+                            onVerticalDrag = { _, dragAmount ->
+                                if (dragAmount > 0f) {
+                                    totalDrag += dragAmount
+                                }
+                            },
+                        )
+                    }.padding(horizontal = 10.dp, vertical = 8.dp)
+                    .verticalScroll(scrollState),
+        ) {
+            title?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = overlayTextColor,
+                    maxLines = 2,
+                )
+            }
+            Text(
+                text = timeLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = overlayMutedColor,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+            if (!hasDetails) {
+                Text(
+                    text = "No details available",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = overlayMutedColor,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+            if (content.isNotBlank()) {
+                val richTextStyle = MaterialTheme.typography.bodySmall.copy(color = overlayTextColor)
+                CompositionLocalProvider(LocalTextStyle provides richTextStyle) {
+                    RichTextViewer(
+                        content = content,
+                        canPreview = false,
+                        quotesLeft = 0,
+                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                        tags = event.tags.toImmutableListOfLists(),
+                        backgroundColor = remember { mutableStateOf(Color.Transparent) },
+                        accountViewModel = accountViewModel,
+                        nav = nav,
+                    )
+                }
+            }
+            if (hashtags.isNotEmpty()) {
+                FlowRow(
+                    modifier = Modifier.padding(top = 6.dp).wrapContentWidth(),
+                ) {
+                    hashtags.forEach { tag ->
+                        val normalized = tag.lowercase()
+                        ClickableTextColor(
+                            text = "#$normalized ",
+                            style = MaterialTheme.typography.labelSmall,
+                            linkColor = overlayMutedColor,
+                        ) {
+                            accountViewModel.account.settings.changeDefaultStoriesFollowList("Hashtag/$normalized")
+                            accountViewModel.feedStates.videoFeed.checkKeysInvalidateDataAndSendToTop()
+                            accountViewModel.dataSources().video.hardRefresh(accountViewModel.account)
+                            onDismiss()
+                            onUserInteraction()
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -26,6 +26,7 @@ import com.vitorpamplona.amethyst.service.relays.SincePerRelayMap
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.LegacyMimeTypeMap
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoKinds
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoLegacyKinds
+import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.PictureAndVideoTextNoteKinds
 import com.vitorpamplona.quartz.nip01Core.core.HexKey
 import com.vitorpamplona.quartz.nip01Core.relay.client.pool.RelayBasedFilter
 import com.vitorpamplona.quartz.nip01Core.relay.filters.Filter
@@ -36,37 +37,57 @@ fun filterPictureAndVideoAuthors(
     relay: NormalizedRelayUrl,
     authors: Set<HexKey>,
     since: Long? = null,
+    includeTextNotes: Boolean = false,
 ): List<RelayBasedFilter> {
     val authorList = authors.sorted()
-    return listOf(
-        RelayBasedFilter(
-            relay = relay,
-            filter =
-                Filter(
-                    authors = authorList,
-                    kinds = PictureAndVideoKinds,
-                    limit = if (since == null) max(authorList.size * 20, 200) else null,
-                    since = since,
+    return buildList {
+        add(
+            RelayBasedFilter(
+                relay = relay,
+                filter =
+                    Filter(
+                        authors = authorList,
+                        kinds = PictureAndVideoKinds,
+                        limit = if (since == null) max(authorList.size * 20, 200) else null,
+                        since = since,
+                    ),
+            ),
+        )
+        add(
+            RelayBasedFilter(
+                relay = relay,
+                filter =
+                    Filter(
+                        authors = authorList,
+                        kinds = PictureAndVideoLegacyKinds,
+                        tags = LegacyMimeTypeMap,
+                        limit = if (since == null) max(authorList.size * 20, 200) else null,
+                        since = since,
+                    ),
+            ),
+        )
+        if (includeTextNotes) {
+            add(
+                RelayBasedFilter(
+                    relay = relay,
+                    filter =
+                        Filter(
+                            authors = authorList,
+                            kinds = PictureAndVideoTextNoteKinds,
+                            limit = if (since == null) max(authorList.size * 20, 200) else null,
+                            since = since,
+                        ),
                 ),
-        ),
-        RelayBasedFilter(
-            relay = relay,
-            filter =
-                Filter(
-                    authors = authorList,
-                    kinds = PictureAndVideoLegacyKinds,
-                    tags = LegacyMimeTypeMap,
-                    limit = if (since == null) max(authorList.size * 20, 200) else null,
-                    since = since,
-                ),
-        ),
-    )
+            )
+        }
+    }
 }
 
 fun filterPictureAndVideoByAuthors(
     authorSet: AuthorsTopNavPerRelayFilterSet,
     since: SincePerRelayMap?,
     defaultSince: Long? = null,
+    includeTextNotes: Boolean = false,
 ): List<RelayBasedFilter> {
     if (authorSet.set.isEmpty()) return emptyList()
 
@@ -79,6 +100,7 @@ fun filterPictureAndVideoByAuthors(
                     relay = it.key,
                     authors = it.value.authors,
                     since = since?.get(it.key)?.time ?: defaultSince,
+                    includeTextNotes = includeTextNotes,
                 )
             }
         }.flatten()
@@ -88,6 +110,7 @@ fun filterPictureAndVideoByAuthors(
     authorSet: MutedAuthorsTopNavPerRelayFilterSet,
     since: SincePerRelayMap?,
     defaultSince: Long? = null,
+    includeTextNotes: Boolean = false,
 ): List<RelayBasedFilter> {
     if (authorSet.set.isEmpty()) return emptyList()
 
@@ -100,6 +123,7 @@ fun filterPictureAndVideoByAuthors(
                     relay = it.key,
                     authors = it.value.authors,
                     since = since?.get(it.key)?.time ?: defaultSince,
+                    includeTextNotes = includeTextNotes,
                 )
             }
         }.flatten()

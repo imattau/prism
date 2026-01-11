@@ -98,6 +98,9 @@ private object PrefKeys {
     const val DEFAULT_NOTIFICATION_FOLLOW_LIST = "defaultNotificationFollowList"
     const val DEFAULT_DISCOVERY_FOLLOW_LIST = "defaultDiscoveryFollowList"
     const val VIDEO_FEED_VIDEOS_ONLY = "videoFeedVideosOnly"
+    const val VIDEO_FEED_NEWEST_FIRST = "videoFeedNewestFirst"
+    const val VIDEO_FEED_LAST_POSITIONS = "videoFeedLastPositions"
+    const val FONT_SCALE_INDEX = "fontScaleIndex"
     const val ZAP_PAYMENT_REQUEST_SERVER = "zapPaymentServer"
     const val LATEST_USER_METADATA = "latestUserMetadata"
     const val LATEST_CONTACT_LIST = "latestContactList"
@@ -429,6 +432,12 @@ object LocalPreferences {
                         settings.defaultDiscoveryFollowList.value,
                     )
                     putBoolean(PrefKeys.VIDEO_FEED_VIDEOS_ONLY, settings.videoFeedVideosOnly.value)
+                    putBoolean(PrefKeys.VIDEO_FEED_NEWEST_FIRST, settings.videoFeedNewestFirst.value)
+                    putString(
+                        PrefKeys.VIDEO_FEED_LAST_POSITIONS,
+                        JsonMapper.toJson(settings.videoFeedLastPositions.value),
+                    )
+                    putInt(PrefKeys.FONT_SCALE_INDEX, settings.fontScaleIndex.value)
 
                     putOrRemove(PrefKeys.ZAP_PAYMENT_REQUEST_SERVER, settings.zapPaymentRequest.value?.denormalize())
 
@@ -602,6 +611,10 @@ object LocalPreferences {
                     val defaultDiscoveryFollowList =
                         getString(PrefKeys.DEFAULT_DISCOVERY_FOLLOW_LIST, null) ?: GLOBAL_FOLLOWS
                     val videoFeedVideosOnly = getBoolean(PrefKeys.VIDEO_FEED_VIDEOS_ONLY, false)
+                    val videoFeedNewestFirst = getBoolean(PrefKeys.VIDEO_FEED_NEWEST_FIRST, true)
+                    val videoFeedLastPositions =
+                        parseOrNull<Map<String, String>>(PrefKeys.VIDEO_FEED_LAST_POSITIONS) ?: mapOf()
+                    val fontScaleIndex = getInt(PrefKeys.FONT_SCALE_INDEX, 2)
 
                     val zapPaymentRequestServer = parseOrNull<Nip47WalletConnect.Nip47URI>(PrefKeys.ZAP_PAYMENT_REQUEST_SERVER)
                     val defaultFileServer = parseOrNull<ServerName>(PrefKeys.DEFAULT_FILE_SERVER) ?: DEFAULT_MEDIA_SERVERS[0]
@@ -650,6 +663,9 @@ object LocalPreferences {
                         defaultNotificationFollowList = MutableStateFlow(defaultNotificationFollowList),
                         defaultDiscoveryFollowList = MutableStateFlow(defaultDiscoveryFollowList),
                         videoFeedVideosOnly = MutableStateFlow(videoFeedVideosOnly),
+                        videoFeedNewestFirst = MutableStateFlow(videoFeedNewestFirst),
+                        videoFeedLastPositions = MutableStateFlow(videoFeedLastPositions),
+                        fontScaleIndex = MutableStateFlow(fontScaleIndex),
                         zapPaymentRequest = MutableStateFlow(zapPaymentRequestServer?.normalize()),
                         hideDeleteRequestDialog = hideDeleteRequestDialog,
                         hideBlockAlertDialog = hideBlockAlertDialog,

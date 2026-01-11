@@ -36,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,6 +58,7 @@ import com.vitorpamplona.amethyst.ui.navigation.topbars.TopBarWithBackButton
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.AccountViewModel
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.mockAccountViewModel
 import com.vitorpamplona.amethyst.ui.stringRes
+import com.vitorpamplona.amethyst.ui.theme.FontScale
 import com.vitorpamplona.amethyst.ui.theme.Size10dp
 import com.vitorpamplona.amethyst.ui.theme.Size20dp
 import com.vitorpamplona.amethyst.ui.theme.ThemeComparisonRow
@@ -93,6 +95,7 @@ fun UserSettingsScreen(
                 if (FeatureFlags.isPrism) {
                     VideoFeedVideosOnlySetting(accountViewModel)
                 }
+                FontScaleSetting(accountViewModel)
                 DontTranslateFromSetting(accountViewModel)
             }
         }
@@ -112,6 +115,29 @@ fun VideoFeedVideosOnlySetting(accountViewModel: AccountViewModel) {
             checked = videosOnly,
             onCheckedChange = { accountViewModel.account.settings.setVideoFeedVideosOnly(it) },
         )
+    }
+}
+
+@Composable
+fun FontScaleSetting(accountViewModel: AccountViewModel) {
+    val fontScaleIndex by accountViewModel.account.settings.fontScaleIndex
+        .collectAsStateWithLifecycle()
+    val options = FontScale.presets
+    val clampedIndex = fontScaleIndex.coerceIn(0, options.size - 1)
+
+    SettingsRow(
+        name = R.string.font_scale_title,
+        description = R.string.font_scale_description,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text = stringRes(options[clampedIndex].labelResId))
+            Slider(
+                value = clampedIndex.toFloat(),
+                onValueChange = { accountViewModel.account.settings.setFontScaleIndex(it.toInt()) },
+                valueRange = 0f..(options.size - 1).toFloat(),
+                steps = options.size - 2,
+            )
+        }
     }
 }
 

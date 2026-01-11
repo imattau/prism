@@ -66,6 +66,17 @@ abstract class PerUserAndFollowListEoseManager<T, U : Any>(
         }
     }
 
+    fun resetEoseForUser(user: User) {
+        latestEOSEs.removeDataFor(user)
+    }
+
+    fun restartSubscriptionsForUser(user: User) {
+        userSubscriptionMap[user]?.let { subId ->
+            endSub(user, subId)
+        }
+        resetEoseForUser(user)
+    }
+
     open fun newSub(key: T): Subscription =
         requestNewSubscription(
             object : IRequestListener {

@@ -21,6 +21,7 @@
 package com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource
 
 import com.vitorpamplona.quartz.experimental.nip95.header.FileStorageHeaderEvent
+import com.vitorpamplona.quartz.nip10Notes.TextNoteEvent
 import com.vitorpamplona.quartz.nip68Picture.PictureEvent
 import com.vitorpamplona.quartz.nip71Video.VideoHorizontalEvent
 import com.vitorpamplona.quartz.nip71Video.VideoNormalEvent
@@ -48,6 +49,8 @@ val PictureAndVideoKTags =
         VideoNormalEvent.KIND.toString(),
         VideoShortEvent.KIND.toString(),
     )
+val PictureAndVideoTextNoteKinds = listOf(TextNoteEvent.KIND)
+val PictureAndVideoTextNoteKTags = listOf(TextNoteEvent.KIND.toString())
 val PictureAndVideoLegacyKinds = listOf(FileHeaderEvent.KIND, FileStorageHeaderEvent.KIND)
 val PictureAndVideoLegacyKTags = listOf(FileHeaderEvent.KIND.toString(), FileStorageHeaderEvent.KIND.toString())
 val LegacyMimeTypes = SUPPORTED_VIDEO_FEED_MIME_TYPES
