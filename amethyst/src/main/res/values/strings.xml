@@ -727,6 +727,9 @@
     <string name="content_warning_hide_all_sensitive_content_option">Hide</string>
     <string name="content_warning_show_all_sensitive_content_option">Show</string>
     <string name="content_warning_see_warnings_option">Warn</string>
+    <string name="profile_mark_sensitive">Mark as sensitive</string>
+    <string name="profile_unmark_sensitive">Unmark sensitive</string>
+    <string name="profile_sensitive_toggle">Toggle sensitive content for this profile</string>
 
     <string name="recommended_apps">Recommends: </string>
     <string name="filter_spam_from_strangers">Filter spam from strangers</string>

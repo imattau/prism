@@ -20,10 +20,22 @@
  */
 package com.vitorpamplona.amethyst.ui.screen.loggedIn.profile.header
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vitorpamplona.amethyst.R
 import com.vitorpamplona.amethyst.model.User
 import com.vitorpamplona.amethyst.service.relayClient.reqCommand.account.observeAccountIsHiddenUser
 import com.vitorpamplona.amethyst.ui.navigation.navs.INav
@@ -31,6 +43,9 @@ import com.vitorpamplona.amethyst.ui.navigation.routes.Route
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.AccountViewModel
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.profile.ListButton
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.profile.zaps.ShowUserButton
+import com.vitorpamplona.amethyst.ui.stringRes
+import com.vitorpamplona.amethyst.ui.theme.Size20Modifier
+import com.vitorpamplona.amethyst.ui.theme.ZeroPadding
 
 @Composable
 fun ProfileActions(
@@ -49,6 +64,10 @@ fun ProfileActions(
         EditButton(nav)
     }
 
+    val sensitiveOverrides by accountViewModel.account.settings.sensitiveUserOverrides
+        .collectAsStateWithLifecycle()
+    val isSensitive = sensitiveOverrides.contains(baseUser.pubkeyHex)
+
     val isHidden by observeAccountIsHiddenUser(accountViewModel.account, baseUser)
 
     if (isHidden) {
@@ -56,6 +75,33 @@ fun ProfileActions(
     } else {
         DisplayFollowUnfollowButton(baseUser, accountViewModel)
 
+        SensitiveToggleButton(
+            isSensitive = isSensitive,
+            onToggle = { accountViewModel.account.settings.setSensitiveUserOverride(baseUser.pubkeyHex, !isSensitive) },
+        )
+
         ListButton { nav.nav(Route.PeopleListManagement(baseUser.pubkeyHex)) }
+    }
+}
+
+@Composable
+private fun SensitiveToggleButton(
+    isSensitive: Boolean,
+    onToggle: () -> Unit,
+) {
+    FilledTonalButton(
+        modifier =
+            Modifier
+                .padding(horizontal = 3.dp)
+                .width(50.dp),
+        onClick = onToggle,
+        contentPadding = ZeroPadding,
+    ) {
+        Icon(
+            imageVector = if (isSensitive) Icons.Rounded.Warning else Icons.Outlined.Warning,
+            contentDescription = stringRes(R.string.profile_sensitive_toggle),
+            modifier = Size20Modifier,
+            tint = if (isSensitive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

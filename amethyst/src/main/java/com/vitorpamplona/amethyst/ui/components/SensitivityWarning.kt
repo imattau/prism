@@ -75,7 +75,12 @@ fun SensitivityWarning(
     accountViewModel: AccountViewModel,
     content: @Composable () -> Unit,
 ) {
-    val hasSensitiveContent = remember(event) { event.isSensitiveOrNSFW() }
+    val sensitiveOverrides by accountViewModel.account.settings.sensitiveUserOverrides
+        .collectAsStateWithLifecycle()
+    val hasSensitiveContent =
+        remember(event, sensitiveOverrides) {
+            event.isSensitiveOrNSFW() || sensitiveOverrides.contains(event.pubKey)
+        }
 
     SensitivityWarning(hasSensitiveContent, accountViewModel, content)
 }

@@ -123,6 +123,7 @@ class AccountSettings(
     val videoFeedNewestFirst: MutableStateFlow<Boolean> = MutableStateFlow(true),
     val videoFeedLastPositions: MutableStateFlow<Map<String, String>> = MutableStateFlow(mapOf()),
     val fontScaleIndex: MutableStateFlow<Int> = MutableStateFlow(2),
+    val sensitiveUserOverrides: MutableStateFlow<Set<String>> = MutableStateFlow(setOf()),
     var zapPaymentRequest: MutableStateFlow<Nip47WalletConnect.Nip47URINorm?> = MutableStateFlow(null),
     var hideDeleteRequestDialog: Boolean = false,
     var hideBlockAlertDialog: Boolean = false,
@@ -228,6 +229,22 @@ class AccountSettings(
 
         videoFeedLastPositions.tryEmit(current + (feedCode to noteId))
         saveAccountSettings()
+    }
+
+    fun isSensitiveUser(pubkeyHex: String): Boolean = sensitiveUserOverrides.value.contains(pubkeyHex)
+
+    fun setSensitiveUserOverride(
+        pubkeyHex: String,
+        enabled: Boolean,
+    ): Boolean {
+        val current = sensitiveUserOverrides.value
+        val updated = if (enabled) current + pubkeyHex else current - pubkeyHex
+        if (updated != current) {
+            sensitiveUserOverrides.tryEmit(updated)
+            saveAccountSettings()
+            return true
+        }
+        return false
     }
 
     fun setFontScaleIndex(index: Int) {

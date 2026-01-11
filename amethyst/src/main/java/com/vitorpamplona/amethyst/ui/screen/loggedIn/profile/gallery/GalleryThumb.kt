@@ -68,6 +68,7 @@ import com.vitorpamplona.amethyst.ui.screen.loggedIn.AccountViewModel
 import com.vitorpamplona.amethyst.ui.theme.QuoteBorder
 import com.vitorpamplona.amethyst.ui.theme.Size75dp
 import com.vitorpamplona.quartz.experimental.profileGallery.ProfileGalleryEntryEvent
+import com.vitorpamplona.quartz.nip36SensitiveContent.isSensitiveOrNSFW
 import com.vitorpamplona.quartz.nip68Picture.PictureEvent
 import com.vitorpamplona.quartz.nip71Video.VideoEvent
 
@@ -148,7 +149,7 @@ fun InnerRenderGalleryThumb(
     ratio: Float = 1.0f,
 ) {
     if (content.isNotEmpty()) {
-        GalleryContentView(content, accountViewModel, ratio = ratio)
+        GalleryContentView(content, note, accountViewModel, ratio = ratio)
     } else {
         DisplayGalleryAuthorBanner(note, accountViewModel)
     }
@@ -168,19 +169,30 @@ fun DisplayGalleryAuthorBanner(
 @Composable
 fun GalleryContentView(
     contentList: List<MediaUrlContent>,
+    note: Note,
     accountViewModel: AccountViewModel,
     ratio: Float = 1.0f,
 ) {
     AutoNonlazyGrid(contentList.size) { contentIndex ->
         when (val content = contentList[contentIndex]) {
-            is MediaUrlImage ->
-                SensitivityWarning(content.contentWarning != null, accountViewModel) {
+            is MediaUrlImage -> {
+                val baseSensitive =
+                    content.contentWarning != null ||
+                        (note.event?.isSensitiveOrNSFW() == true) ||
+                        accountViewModel.account.settings.isSensitiveUser(note.event?.pubKey ?: "")
+                SensitivityWarning(baseSensitive, accountViewModel) {
                     UrlImageView(content, accountViewModel, ratio = ratio)
                 }
-            is MediaUrlVideo ->
-                SensitivityWarning(content.contentWarning != null, accountViewModel) {
+            }
+            is MediaUrlVideo -> {
+                val baseSensitive =
+                    content.contentWarning != null ||
+                        (note.event?.isSensitiveOrNSFW() == true) ||
+                        accountViewModel.account.settings.isSensitiveUser(note.event?.pubKey ?: "")
+                SensitivityWarning(baseSensitive, accountViewModel) {
                     UrlVideoView(content, accountViewModel, ratio = ratio)
                 }
+            }
         }
     }
 }

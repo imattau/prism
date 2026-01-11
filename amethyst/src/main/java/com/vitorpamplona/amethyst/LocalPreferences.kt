@@ -101,6 +101,7 @@ private object PrefKeys {
     const val VIDEO_FEED_NEWEST_FIRST = "videoFeedNewestFirst"
     const val VIDEO_FEED_LAST_POSITIONS = "videoFeedLastPositions"
     const val FONT_SCALE_INDEX = "fontScaleIndex"
+    const val SENSITIVE_USER_OVERRIDES = "sensitiveUserOverrides"
     const val ZAP_PAYMENT_REQUEST_SERVER = "zapPaymentServer"
     const val LATEST_USER_METADATA = "latestUserMetadata"
     const val LATEST_CONTACT_LIST = "latestContactList"
@@ -438,6 +439,7 @@ object LocalPreferences {
                         JsonMapper.toJson(settings.videoFeedLastPositions.value),
                     )
                     putInt(PrefKeys.FONT_SCALE_INDEX, settings.fontScaleIndex.value)
+                    putString(PrefKeys.SENSITIVE_USER_OVERRIDES, JsonMapper.toJson(settings.sensitiveUserOverrides.value))
 
                     putOrRemove(PrefKeys.ZAP_PAYMENT_REQUEST_SERVER, settings.zapPaymentRequest.value?.denormalize())
 
@@ -615,6 +617,7 @@ object LocalPreferences {
                     val videoFeedLastPositions =
                         parseOrNull<Map<String, String>>(PrefKeys.VIDEO_FEED_LAST_POSITIONS) ?: mapOf()
                     val fontScaleIndex = getInt(PrefKeys.FONT_SCALE_INDEX, 2)
+                    val sensitiveUserOverrides = parseOrNull<Set<String>>(PrefKeys.SENSITIVE_USER_OVERRIDES) ?: setOf()
 
                     val zapPaymentRequestServer = parseOrNull<Nip47WalletConnect.Nip47URI>(PrefKeys.ZAP_PAYMENT_REQUEST_SERVER)
                     val defaultFileServer = parseOrNull<ServerName>(PrefKeys.DEFAULT_FILE_SERVER) ?: DEFAULT_MEDIA_SERVERS[0]
@@ -666,6 +669,7 @@ object LocalPreferences {
                         videoFeedNewestFirst = MutableStateFlow(videoFeedNewestFirst),
                         videoFeedLastPositions = MutableStateFlow(videoFeedLastPositions),
                         fontScaleIndex = MutableStateFlow(fontScaleIndex),
+                        sensitiveUserOverrides = MutableStateFlow(sensitiveUserOverrides),
                         zapPaymentRequest = MutableStateFlow(zapPaymentRequestServer?.normalize()),
                         hideDeleteRequestDialog = hideDeleteRequestDialog,
                         hideBlockAlertDialog = hideBlockAlertDialog,
