@@ -23,6 +23,7 @@ package com.vitorpamplona.amethyst.ui.screen.loggedIn.video
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -33,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -41,6 +43,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vitorpamplona.amethyst.FeatureFlags
@@ -306,12 +309,37 @@ private fun TopNavFilterBar(
     onChange: (FeedDefinition) -> Unit,
 ) {
     val allLists by followListsModel.kind3GlobalPeopleRoutes.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val savedHashtags by accountViewModel.account.hashtagList.flow.collectAsStateWithLifecycle()
+    val hashtagFilter = if (listName.startsWith("Hashtag/")) listName.removePrefix("Hashtag/") else null
+    val canSaveHashtag =
+        hashtagFilter != null &&
+            hashtagFilter.isNotBlank() &&
+            !savedHashtags.contains(hashtagFilter.lowercase())
 
-    FeedFilterSpinner(
-        placeholderCode = listName,
-        explainer = stringRes(R.string.select_list_to_filter),
-        options = allLists,
-        onSelect = { onChange(allLists.getOrNull(it) ?: followListsModel.allFollows) },
-        accountViewModel = accountViewModel,
-    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        FeedFilterSpinner(
+            placeholderCode = listName,
+            explainer = stringRes(R.string.select_list_to_filter),
+            options = allLists,
+            onSelect = { onChange(allLists.getOrNull(it) ?: followListsModel.allFollows) },
+            accountViewModel = accountViewModel,
+        )
+
+        if (canSaveHashtag) {
+            IconButton(
+                onClick = {
+                    scope.launch { accountViewModel.account.followHashtag(hashtagFilter.lowercase()) }
+                },
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = stringRes(id = R.string.save_hashtag_filter),
+                    modifier = Size22Modifier,
+                    tint = MaterialTheme.colorScheme.placeholderText,
+                )
+            }
+        }
+    }
 }
+
