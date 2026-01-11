@@ -41,7 +41,9 @@ fun ProfileActions(
     MessageButton(baseUser, accountViewModel, nav)
 
     val isMe by
-        remember(accountViewModel) { derivedStateOf { accountViewModel.userProfile() == baseUser } }
+        remember(accountViewModel, baseUser) {
+            derivedStateOf { accountViewModel.userProfile().pubkeyHex == baseUser.pubkeyHex }
+        }
 
     if (isMe) {
         EditButton(nav)

@@ -144,15 +144,20 @@ fun VideoScreen(
         topBar = {
             StoriesTopBar(accountViewModel, accountStateViewModel, nav)
         },
-        bottomBar = {
-            AppBottomBar(Route.Video, accountViewModel) { route ->
-                if (route == Route.Video) {
-                    videoFeedContentState.sendToTop()
-                } else {
-                    nav.newStack(route)
+        bottomBar =
+            if (FeatureFlags.isPrism) {
+                null
+            } else {
+                {
+                    AppBottomBar(Route.Video, accountViewModel) { route ->
+                        if (route == Route.Video) {
+                            videoFeedContentState.sendToTop()
+                        } else {
+                            nav.newStack(route)
+                        }
+                    }
                 }
-            }
-        },
+            },
         floatingButton = {
             NewImageButton(accountViewModel, nav, videoFeedContentState::sendToTop)
         },

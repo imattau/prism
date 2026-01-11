@@ -122,10 +122,12 @@ class Nav(
                 is Route.UserSettings,
                 is Route.SecurityFilters,
                 is Route.PrivacyOptions,
+                is Route.EditProfile,
                 is Route.EditRelays,
                 is Route.EditMediaServers,
                 is Route.QRDisplay,
                 is Route.ManualZapSplitPayment,
+                is Route.GenericCommentPost,
                 -> true
                 else -> false
             }
