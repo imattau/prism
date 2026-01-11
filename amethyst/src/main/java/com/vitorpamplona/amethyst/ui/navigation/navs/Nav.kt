@@ -116,7 +116,16 @@ class Nav(
                 is Route.Video,
                 is Route.Note,
                 is Route.EventRedirect,
-                is Route.ManualZapSplitPayment -> true
+                is Route.Profile,
+                is Route.Settings,
+                is Route.UserSettings,
+                is Route.SecurityFilters,
+                is Route.PrivacyOptions,
+                is Route.EditRelays,
+                is Route.EditMediaServers,
+                is Route.QRDisplay,
+                is Route.ManualZapSplitPayment,
+                -> true
                 else -> false
             }
         }

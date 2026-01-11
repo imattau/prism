@@ -20,18 +20,21 @@
  */
 package com.vitorpamplona.amethyst.ui.screen.loggedIn.threadview
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.vitorpamplona.amethyst.FeatureFlags
 import com.vitorpamplona.amethyst.R
 import com.vitorpamplona.amethyst.service.relayClient.reqCommand.event.EventFinderFilterAssemblerSubscription
 import com.vitorpamplona.amethyst.ui.components.LoadNote
 import com.vitorpamplona.amethyst.ui.feeds.WatchLifecycleAndUpdateModel
 import com.vitorpamplona.amethyst.ui.layouts.DisappearingScaffold
 import com.vitorpamplona.amethyst.ui.navigation.navs.INav
+import com.vitorpamplona.amethyst.ui.navigation.routes.Route
 import com.vitorpamplona.amethyst.ui.navigation.topbars.TopBarExtensibleWithBackButton
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.AccountViewModel
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.threadview.dal.ThreadFeedViewModel
@@ -45,6 +48,10 @@ fun ThreadScreen(
     nav: INav,
 ) {
     if (noteId == null) return
+
+    if (FeatureFlags.isPrism) {
+        BackHandler { nav.newStack(Route.Video) }
+    }
 
     val feedViewModel: ThreadFeedViewModel =
         viewModel(
@@ -67,7 +74,12 @@ fun ThreadScreen(
         topBar = {
             TopBarExtensibleWithBackButton(
                 title = { Text(stringRes(id = R.string.thread_title)) },
-                popBack = nav::popBack,
+                popBack =
+                    if (FeatureFlags.isPrism) {
+                        { nav.newStack(Route.Video) }
+                    } else {
+                        nav::popBack
+                    },
             )
         },
         accountViewModel = accountViewModel,

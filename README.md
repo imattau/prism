@@ -200,6 +200,11 @@ Build the Prism (video-only) flavor:
 ./gradlew :amethyst:assemblePrismDebug
 ```
 
+Prism limitations:
+- Video-first navigation only (no Home/Discover/Messages/Notifications screens).
+- Translation and push notification helpers are stubbed for this flavor.
+- External share intents route to the video feed instead of the post composer.
+
 Build and run the Desktop app (requires Java 21+):
 ```bash
 ./gradlew :desktopApp:run

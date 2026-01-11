@@ -72,12 +72,15 @@ import com.vitorpamplona.amethyst.ui.navigation.navs.INav
 import com.vitorpamplona.amethyst.ui.navigation.routes.Route
 import com.vitorpamplona.amethyst.ui.navigation.routes.routeFor
 import com.vitorpamplona.amethyst.ui.note.BoostReaction
+import com.vitorpamplona.amethyst.ui.note.BoostText
 import com.vitorpamplona.amethyst.ui.note.CheckHiddenFeedWatchBlockAndReport
 import com.vitorpamplona.amethyst.ui.note.LikeReaction
 import com.vitorpamplona.amethyst.ui.note.NoteAuthorPicture
 import com.vitorpamplona.amethyst.ui.note.NoteUsernameDisplay
+import com.vitorpamplona.amethyst.ui.note.ObserveBoostIcon
 import com.vitorpamplona.amethyst.ui.note.RenderAllRelayList
 import com.vitorpamplona.amethyst.ui.note.ReplyReaction
+import com.vitorpamplona.amethyst.ui.note.RepostedIcon
 import com.vitorpamplona.amethyst.ui.note.ZapReaction
 import com.vitorpamplona.amethyst.ui.note.elements.NoteDropDownMenu
 import com.vitorpamplona.amethyst.ui.note.types.FileHeaderDisplay
@@ -128,9 +131,7 @@ fun VideoScreen(
     DisappearingScaffold(
         isInvertedLayout = false,
         topBar = {
-            if (!FeatureFlags.isPrism) {
-                StoriesTopBar(accountViewModel, nav)
-            }
+            StoriesTopBar(accountViewModel, nav)
         },
         bottomBar = {
             AppBottomBar(Route.Video, accountViewModel) { route ->
@@ -432,7 +433,13 @@ fun ReactionsColumn(
                 accountViewModel.account,
             )?.let { nav.nav(it) }
         }
-        if (!FeatureFlags.isPrism) {
+        if (FeatureFlags.isPrism) {
+            RepostOnlyReaction(
+                baseNote = baseNote,
+                grayTint = MaterialTheme.colorScheme.onBackground,
+                accountViewModel = accountViewModel,
+            )
+        } else {
             BoostReaction(
                 baseNote = baseNote,
                 grayTint = MaterialTheme.colorScheme.onBackground,
@@ -469,4 +476,26 @@ fun ReactionsColumn(
             nav = nav,
         )
     }
+}
+
+@Composable
+private fun RepostOnlyReaction(
+    baseNote: Note,
+    grayTint: Color,
+    accountViewModel: AccountViewModel,
+) {
+    ClickableBox(
+        modifier = Size40Modifier,
+        onClick = {
+            accountViewModel.tryBoost(baseNote) {
+                accountViewModel.boost(baseNote)
+            }
+        },
+    ) {
+        ObserveBoostIcon(baseNote, accountViewModel) { hasBoosted ->
+            RepostedIcon(Size40Modifier, if (hasBoosted) Color.Unspecified else grayTint)
+        }
+    }
+
+    BoostText(baseNote, grayTint, accountViewModel)
 }

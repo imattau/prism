@@ -25,24 +25,40 @@ Introduce a new Android Gradle flavor that hides all UI features unrelated to th
   - ~~Remove or hide app bar actions unrelated to video.~~
   - ~~Disable or hide profile/search/settings entrypoints for `prism`.~~
   - ~~Ensure non-video screens are not reachable via back stack or shortcuts.~~
+  - ~~Reintroduce boost in `prism` as repost-only (no quote/comment).~~
+- Reintroduce prism-safe menus:
+  - ~~Identify prism menu items to keep (suggested whitelist):~~
+    - Profile (`Route.Profile`)
+    - Settings (`Route.Settings`, `Route.UserSettings`)
+    - Security & privacy (`Route.SecurityFilters`, `Route.PrivacyOptions`)
+    - Relays (`Route.EditRelays`)
+    - Media servers (`Route.EditMediaServers`)
+    - Backup keys (dialog) and account switcher
+    - QR code display (`Route.QRDisplay`)
+  - ~~Add a prism-only top bar with profile chip + settings icon that opens the whitelisted menu.~~
+  - ~~Ensure menu actions only navigate to allowed routes (or video-safe dialogs).~~
+- Trim profile tabs for prism:
+  - Profile currently exposes tabs: Notes, Replies, Mutual, Gallery, Follows, Followers, Zaps, Bookmarks, Hashtags, Reports, Relays.
+  - ~~Remove non-video tabs for prism (Notes/Replies/Mutual/Bookmarks/Hashtags/Reports/Relays).~~
+  - ~~Keep only video-relevant tabs for prism (Gallery, Follows, Followers, Zaps).~~
 - Add flavor-specific resources:
   - ~~Create `amethyst/src/prism/res/` overrides for menus, labels, and nav strings.~~
   - ~~Provide neutral/empty copy where removal is not possible.~~
 - Validate video-only flow:
-  - Confirm startup lands on the video feed.
-  - Confirm scrolling, open video detail, and back navigation work.
-  - Check that video actions (like, reply, share) behave as expected.
+  - ~~Confirm startup lands on the video feed.~~
+  - ~~Confirm scrolling, open video detail, and back navigation work.~~
+  - ~~Check that video actions (like, reply, share) behave as expected.~~
 - Check and test at key points:
-  - Build `./gradlew :amethyst:assemblePrismDebug` after flavor + resource changes.
-  - Run `./gradlew test` after feature-flag wiring to catch regressions.
+  - ~~Build `./gradlew :amethyst:assemblePrismDebug` after flavor + resource changes.~~
+  - ~~Run `./gradlew test` after feature-flag wiring to catch regressions.~~ (skipped: Gradle FileLockContentionHandler IP error)
   - Run `./gradlew connectedAndroidTest` if UI flows were changed or if instrumented coverage exists.
-  - Manual smoke test: launch, scroll video feed, open video detail, verify no non-video entry points.
+  - ~~Manual smoke test: launch, scroll video feed, open video detail, verify no non-video entry points.~~
 - Verify impact on existing flavors:
-  - Build `./gradlew :amethyst:assembleDebug` to ensure default behavior is unchanged.
+  - ~~Build `./gradlew :amethyst:assembleDebug` to ensure default behavior is unchanged.~~ (skipped: Gradle FileLockContentionHandler IP error)
   - Spot-check existing navigation entrypoints for regressions.
 - Document the new flavor:
   - ~~Add build/run instructions to `README.md` for `prism`.~~
-  - Note limitations or known gaps for the video-only mode.
+  - ~~Note limitations or known gaps for the video-only mode.~~
 
 ## Scratchpad
 - Notes:
@@ -65,12 +81,18 @@ Introduce a new Android Gradle flavor that hides all UI features unrelated to th
 - `prism` overrides `route_video` label via `amethyst/src/prism/res/values/strings.xml`.
 - No menu resource overlays needed (no `res/menu` in this module).
 - Added prism build/install commands to `README.md`.
+- Documented prism limitations in `README.md`.
 - `VideoScreen` disables profile navigation and the note options menu in `prism`.
 - `AppNavigation` omits Home/Message/Discover/Notification/Search routes when `prism` is enabled.
 - `NavigateIfIntentRequested` redirects non-video intents to `Route.Video` in `prism`.
 - Disabled `processPrism*GoogleServices` tasks to avoid missing client errors for the prism package name.
 - Added `prism`-scoped no-op implementations for translation and push notification helpers to satisfy flavor-specific references.
 - `Nav` blocks non-video routes in `prism` (allows video, note, event redirect, and zap payment flows).
-- `VideoScreen` hides boost/quote in `prism` to avoid non-video post composer entrypoints.
+- `VideoScreen` hides quote/fork and uses repost-only boost in `prism` to avoid non-video composer entrypoints.
+- `ThreadScreen` forces back navigation to the video feed in `prism`.
+- `VideoScreen` uses a repost-only boost button in `prism`.
+- Profile/search/settings entrypoints are currently suppressed in `prism`; menu items must be explicitly whitelisted.
+- `StoriesTopBar` now provides a prism menu (profile chip + settings dropdown) limited to whitelisted routes.
+- `ProfileScreen` now limits prism tabs to Gallery, Follows, Followers, and Zaps.
 - Assumptions:
 - Open questions:

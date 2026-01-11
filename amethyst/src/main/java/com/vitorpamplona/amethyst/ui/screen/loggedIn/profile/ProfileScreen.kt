@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -57,6 +56,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.vitorpamplona.amethyst.FeatureFlags
 import com.vitorpamplona.amethyst.R
 import com.vitorpamplona.amethyst.model.LocalCache
 import com.vitorpamplona.amethyst.model.User
@@ -383,7 +383,93 @@ private fun RenderScreen(
     accountViewModel: AccountViewModel,
     nav: INav,
 ) {
-    val pagerState = rememberPagerState { 11 }
+    val coroutineScope = rememberCoroutineScope()
+    val tabs =
+        if (FeatureFlags.isPrism) {
+            listOf(
+                ProfileTabSpec(
+                    title = { Text(text = stringRes(R.string.gallery)) },
+                    content = { TabGallery(galleryFeedViewModel, accountViewModel, nav) },
+                ),
+                ProfileTabSpec(
+                    title = { FollowTabHeader(baseUser, accountViewModel) },
+                    content = { TabFollows(baseUser, followsFeedViewModel, accountViewModel, nav) },
+                ),
+                ProfileTabSpec(
+                    title = { FollowersTabHeader(baseUser, accountViewModel) },
+                    content = { TabFollowers(baseUser, followersFeedViewModel, accountViewModel, nav) },
+                ),
+                ProfileTabSpec(
+                    title = { ZapTabHeader(baseUser, accountViewModel) },
+                    content = { TabReceivedZaps(baseUser, zapFeedViewModel, accountViewModel, nav) },
+                ),
+            )
+        } else {
+            listOf(
+                ProfileTabSpec(
+                    title = { Text(text = stringRes(R.string.notes)) },
+                    content = {
+                        UpdateThreadsAndRepliesWhenBlockUnblock(
+                            baseUser,
+                            threadsViewModel,
+                            repliesViewModel,
+                            accountViewModel,
+                        )
+                        TabNotesNewThreads(threadsViewModel, accountViewModel, nav)
+                    },
+                ),
+                ProfileTabSpec(
+                    title = { Text(text = stringRes(R.string.replies)) },
+                    content = {
+                        UpdateThreadsAndRepliesWhenBlockUnblock(
+                            baseUser,
+                            threadsViewModel,
+                            repliesViewModel,
+                            accountViewModel,
+                        )
+                        TabNotesConversations(repliesViewModel, accountViewModel, nav)
+                    },
+                ),
+                ProfileTabSpec(
+                    title = { Text(text = stringRes(R.string.mutual)) },
+                    content = { TabMutualConversations(mutualViewModel, accountViewModel, nav) },
+                ),
+                ProfileTabSpec(
+                    title = { Text(text = stringRes(R.string.gallery)) },
+                    content = { TabGallery(galleryFeedViewModel, accountViewModel, nav) },
+                ),
+                ProfileTabSpec(
+                    title = { FollowTabHeader(baseUser, accountViewModel) },
+                    content = { TabFollows(baseUser, followsFeedViewModel, accountViewModel, nav) },
+                ),
+                ProfileTabSpec(
+                    title = { FollowersTabHeader(baseUser, accountViewModel) },
+                    content = { TabFollowers(baseUser, followersFeedViewModel, accountViewModel, nav) },
+                ),
+                ProfileTabSpec(
+                    title = { ZapTabHeader(baseUser, accountViewModel) },
+                    content = { TabReceivedZaps(baseUser, zapFeedViewModel, accountViewModel, nav) },
+                ),
+                ProfileTabSpec(
+                    title = { BookmarkTabHeader(baseUser, accountViewModel) },
+                    content = { TabBookmarks(bookmarksFeedViewModel, accountViewModel, nav) },
+                ),
+                ProfileTabSpec(
+                    title = { FollowedTagsTabHeader(baseUser, accountViewModel) },
+                    content = { TabFollowedTags(baseUser, accountViewModel, nav) },
+                ),
+                ProfileTabSpec(
+                    title = { ReportsTabHeader(baseUser, accountViewModel) },
+                    content = { TabReports(baseUser, reportsFeedViewModel, accountViewModel, nav) },
+                ),
+                ProfileTabSpec(
+                    title = { RelaysTabHeader(baseUser, accountViewModel) },
+                    content = { TabRelays(baseUser, accountViewModel, nav) },
+                ),
+            )
+        }
+
+    val pagerState = rememberPagerState { tabs.size }
 
     Column {
         ProfileHeader(baseUser, appRecommendations, nav, accountViewModel)
@@ -395,70 +481,20 @@ private fun RenderScreen(
             modifier = tabRowModifier,
             divider = { HorizontalDivider(thickness = DividerThickness) },
         ) {
-            CreateAndRenderTabs(
-                baseUser,
-                pagerState,
-                accountViewModel,
-            )
+            tabs.forEachIndexed { index, spec ->
+                Tab(
+                    selected = pagerState.currentPage == index,
+                    onClick = { coroutineScope.launch { pagerState.animateScrollToPage(index) } },
+                    text = spec.title,
+                )
+            }
         }
         HorizontalPager(
             state = pagerState,
             modifier = pagerModifier,
         ) { page ->
-            CreateAndRenderPages(
-                page,
-                baseUser,
-                threadsViewModel,
-                repliesViewModel,
-                mutualViewModel,
-                followsFeedViewModel,
-                followersFeedViewModel,
-                zapFeedViewModel,
-                bookmarksFeedViewModel,
-                galleryFeedViewModel,
-                reportsFeedViewModel,
-                accountViewModel,
-                nav,
-            )
+            tabs[page].content()
         }
-    }
-}
-
-@Composable
-private fun CreateAndRenderPages(
-    page: Int,
-    baseUser: User,
-    threadsViewModel: UserProfileNewThreadsFeedViewModel,
-    repliesViewModel: UserProfileConversationsFeedViewModel,
-    mutualViewModel: UserProfileMutualFeedViewModel,
-    followsFeedViewModel: UserProfileFollowsUserFeedViewModel,
-    followersFeedViewModel: UserProfileFollowersUserFeedViewModel,
-    zapFeedViewModel: UserProfileZapsFeedViewModel,
-    bookmarksFeedViewModel: UserProfileBookmarksFeedViewModel,
-    galleryFeedViewModel: UserProfileGalleryFeedViewModel,
-    reportsFeedViewModel: UserProfileReportFeedViewModel,
-    accountViewModel: AccountViewModel,
-    nav: INav,
-) {
-    UpdateThreadsAndRepliesWhenBlockUnblock(
-        baseUser,
-        threadsViewModel,
-        repliesViewModel,
-        accountViewModel,
-    )
-
-    when (page) {
-        0 -> TabNotesNewThreads(threadsViewModel, accountViewModel, nav)
-        1 -> TabNotesConversations(repliesViewModel, accountViewModel, nav)
-        2 -> TabMutualConversations(mutualViewModel, accountViewModel, nav)
-        3 -> TabGallery(galleryFeedViewModel, accountViewModel, nav)
-        4 -> TabFollows(baseUser, followsFeedViewModel, accountViewModel, nav)
-        5 -> TabFollowers(baseUser, followersFeedViewModel, accountViewModel, nav)
-        6 -> TabReceivedZaps(baseUser, zapFeedViewModel, accountViewModel, nav)
-        7 -> TabBookmarks(bookmarksFeedViewModel, accountViewModel, nav)
-        8 -> TabFollowedTags(baseUser, accountViewModel, nav)
-        9 -> TabReports(baseUser, reportsFeedViewModel, accountViewModel, nav)
-        10 -> TabRelays(baseUser, accountViewModel, nav)
     }
 }
 
@@ -477,34 +513,7 @@ fun UpdateThreadsAndRepliesWhenBlockUnblock(
     }
 }
 
-@Composable
-private fun CreateAndRenderTabs(
-    baseUser: User,
-    pagerState: PagerState,
-    accountViewModel: AccountViewModel,
-) {
-    val coroutineScope = rememberCoroutineScope()
-
-    val tabs =
-        listOf<@Composable (() -> Unit)?>(
-            { Text(text = stringRes(R.string.notes)) },
-            { Text(text = stringRes(R.string.replies)) },
-            { Text(text = stringRes(R.string.mutual)) },
-            { Text(text = stringRes(R.string.gallery)) },
-            { FollowTabHeader(baseUser, accountViewModel) },
-            { FollowersTabHeader(baseUser, accountViewModel) },
-            { ZapTabHeader(baseUser, accountViewModel) },
-            { BookmarkTabHeader(baseUser, accountViewModel) },
-            { FollowedTagsTabHeader(baseUser, accountViewModel) },
-            { ReportsTabHeader(baseUser, accountViewModel) },
-            { RelaysTabHeader(baseUser, accountViewModel) },
-        )
-
-    tabs.forEachIndexed { index, function ->
-        Tab(
-            selected = pagerState.currentPage == index,
-            onClick = { coroutineScope.launch { pagerState.animateScrollToPage(index) } },
-            text = function,
-        )
-    }
-}
+private data class ProfileTabSpec(
+    val title: @Composable () -> Unit,
+    val content: @Composable () -> Unit,
+)
