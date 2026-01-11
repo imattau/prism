@@ -8,6 +8,24 @@
 
 ## Nostr Client for Android
 
+# Prism (Video-Only Flavor)
+
+Prism is a video-focused flavor that streamlines Amethyst into a feed-first experience.
+
+![Prism](./prism_header.png)
+
+### What’s Included
+- Video-first navigation
+- Profile tabs limited to Gallery, Follows, Followers, Zaps
+- Repost-only boosts (no quote composer)
+- Prism-only settings menu with whitelisted routes
+
+### Build & Install
+```bash
+./gradlew :amethyst:assemblePrismDebug
+./gradlew :amethyst:installPrismDebug
+```
+
 Join the social network you control.
 
 [![GitHub downloads](https://img.shields.io/github/downloads/vitorpamplona/amethyst/total?label=Downloads&labelColor=27303D&color=0D1117&logo=github&logoColor=FFFFFF&style=flat)](https://github.com/vitorpamplona/amethyst/releases)
@@ -173,24 +191,6 @@ The UI receives a notification that objects have been updated. Instances of User
 There will never be two Notes with the same ID or two User instances with the same pubkey.
 
 Lastly, the user's account information (private key/pub key) is stored in the Android KeyStore for security.
-
-# Prism (Video-Only Flavor)
-
-Prism is a video-focused flavor that streamlines Amethyst into a feed-first experience.
-
-![Prism](./prism_header.png)
-
-### What’s Included
-- Video-first navigation
-- Profile tabs limited to Gallery, Follows, Followers, Zaps
-- Repost-only boosts (no quote composer)
-- Prism-only settings menu with whitelisted routes
-
-### Build & Install
-```bash
-./gradlew :amethyst:assemblePrismDebug
-./gradlew :amethyst:installPrismDebug
-```
 
 ## Setup
 
