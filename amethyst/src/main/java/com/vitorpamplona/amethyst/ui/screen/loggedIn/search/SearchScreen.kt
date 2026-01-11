@@ -54,6 +54,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.vitorpamplona.amethyst.FeatureFlags
 import com.vitorpamplona.amethyst.R
 import com.vitorpamplona.amethyst.model.LocalCache
 import com.vitorpamplona.amethyst.model.nip11RelayInfo.loadRelayInfo
@@ -76,6 +77,7 @@ import com.vitorpamplona.amethyst.ui.theme.FeedPadding
 import com.vitorpamplona.amethyst.ui.theme.Size20Modifier
 import com.vitorpamplona.amethyst.ui.theme.StdTopPadding
 import com.vitorpamplona.amethyst.ui.theme.placeholderText
+import com.vitorpamplona.quartz.nip71Video.VideoEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.launch
@@ -248,6 +250,13 @@ private fun DisplaySearchResults(
     val liveActivityChannels by searchBarViewModel.searchResultsLiveActivityChannels.collectAsStateWithLifecycle()
     val notes by searchBarViewModel.searchResultsNotes.collectAsStateWithLifecycle()
 
+    val prismNotes =
+        if (FeatureFlags.isPrism) {
+            notes.filter { it.event is VideoEvent }
+        } else {
+            notes
+        }
+
     LazyColumn(
         modifier = Modifier.fillMaxHeight(),
         contentPadding = FeedPadding,
@@ -276,91 +285,93 @@ private fun DisplaySearchResults(
             )
         }
 
-        itemsIndexed(
-            publicChatChannels,
-            key = { _, item -> "public" + item.idHex },
-        ) { _, item ->
-            ChannelName(
-                channelIdHex = item.idHex,
-                channelPicture = item.profilePicture(),
-                channelTitle = {
-                    Text(
-                        item.toBestDisplayName(),
-                        fontWeight = FontWeight.Bold,
-                    )
-                },
-                channelLastTime = null,
-                channelLastContent = item.summary(),
-                hasNewMessages = false,
-                loadProfilePicture = accountViewModel.settings.showProfilePictures(),
-                loadRobohash = accountViewModel.settings.isNotPerformanceMode(),
-                onClick = { nav.nav(routeFor(item)) },
-            )
+        if (!FeatureFlags.isPrism) {
+            itemsIndexed(
+                publicChatChannels,
+                key = { _, item -> "public" + item.idHex },
+            ) { _, item ->
+                ChannelName(
+                    channelIdHex = item.idHex,
+                    channelPicture = item.profilePicture(),
+                    channelTitle = {
+                        Text(
+                            item.toBestDisplayName(),
+                            fontWeight = FontWeight.Bold,
+                        )
+                    },
+                    channelLastTime = null,
+                    channelLastContent = item.summary(),
+                    hasNewMessages = false,
+                    loadProfilePicture = accountViewModel.settings.showProfilePictures(),
+                    loadRobohash = accountViewModel.settings.isNotPerformanceMode(),
+                    onClick = { nav.nav(routeFor(item)) },
+                )
 
-            HorizontalDivider(
-                modifier = StdTopPadding,
-                thickness = DividerThickness,
-            )
+                HorizontalDivider(
+                    modifier = StdTopPadding,
+                    thickness = DividerThickness,
+                )
+            }
+
+            itemsIndexed(
+                ephemeralChannels,
+                key = { _, item -> "ephem" + item.roomId.toKey() },
+            ) { _, item ->
+                val relayInfo by loadRelayInfo(item.roomId.relayUrl)
+
+                ChannelName(
+                    channelIdHex = item.roomId.toKey(),
+                    channelPicture = relayInfo.icon,
+                    channelTitle = {
+                        Text(
+                            item.toBestDisplayName(),
+                            fontWeight = FontWeight.Bold,
+                        )
+                    },
+                    channelLastTime = null,
+                    channelLastContent = stringRes(R.string.ephemeral_relay_chat),
+                    hasNewMessages = false,
+                    loadProfilePicture = accountViewModel.settings.showProfilePictures(),
+                    loadRobohash = accountViewModel.settings.isNotPerformanceMode(),
+                    onClick = { nav.nav(routeFor(item)) },
+                )
+
+                HorizontalDivider(
+                    modifier = StdTopPadding,
+                    thickness = DividerThickness,
+                )
+            }
+
+            itemsIndexed(
+                liveActivityChannels,
+                key = { _, item -> "live" + item.address.toValue() },
+            ) { _, item ->
+                ChannelName(
+                    channelIdHex = item.address.toValue(),
+                    channelPicture = item.profilePicture(),
+                    channelTitle = {
+                        Text(
+                            item.toBestDisplayName(),
+                            fontWeight = FontWeight.Bold,
+                        )
+                    },
+                    channelLastTime = null,
+                    channelLastContent = item.summary(),
+                    hasNewMessages = false,
+                    loadProfilePicture = accountViewModel.settings.showProfilePictures(),
+                    loadRobohash = accountViewModel.settings.isNotPerformanceMode(),
+                    onClick = { nav.nav(routeFor(item)) },
+                )
+
+                HorizontalDivider(
+                    modifier = StdTopPadding,
+                    thickness = DividerThickness,
+                )
+            }
         }
 
         itemsIndexed(
-            ephemeralChannels,
-            key = { _, item -> "ephem" + item.roomId.toKey() },
-        ) { _, item ->
-            val relayInfo by loadRelayInfo(item.roomId.relayUrl)
-
-            ChannelName(
-                channelIdHex = item.roomId.toKey(),
-                channelPicture = relayInfo.icon,
-                channelTitle = {
-                    Text(
-                        item.toBestDisplayName(),
-                        fontWeight = FontWeight.Bold,
-                    )
-                },
-                channelLastTime = null,
-                channelLastContent = stringRes(R.string.ephemeral_relay_chat),
-                hasNewMessages = false,
-                loadProfilePicture = accountViewModel.settings.showProfilePictures(),
-                loadRobohash = accountViewModel.settings.isNotPerformanceMode(),
-                onClick = { nav.nav(routeFor(item)) },
-            )
-
-            HorizontalDivider(
-                modifier = StdTopPadding,
-                thickness = DividerThickness,
-            )
-        }
-
-        itemsIndexed(
-            liveActivityChannels,
-            key = { _, item -> "live" + item.address.toValue() },
-        ) { _, item ->
-            ChannelName(
-                channelIdHex = item.address.toValue(),
-                channelPicture = item.profilePicture(),
-                channelTitle = {
-                    Text(
-                        item.toBestDisplayName(),
-                        fontWeight = FontWeight.Bold,
-                    )
-                },
-                channelLastTime = null,
-                channelLastContent = item.summary(),
-                hasNewMessages = false,
-                loadProfilePicture = accountViewModel.settings.showProfilePictures(),
-                loadRobohash = accountViewModel.settings.isNotPerformanceMode(),
-                onClick = { nav.nav(routeFor(item)) },
-            )
-
-            HorizontalDivider(
-                modifier = StdTopPadding,
-                thickness = DividerThickness,
-            )
-        }
-
-        itemsIndexed(
-            notes,
+            prismNotes,
             key = { _, item -> "n" + item.idHex },
         ) { _, item ->
             NoteCompose(

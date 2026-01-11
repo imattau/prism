@@ -160,7 +160,7 @@ fun AppNavigation(
             composableFromBottomArgs<Route.ManualZapSplitPayment> { PayViaIntentScreen(it.paymentId, accountViewModel, nav) }
 
             composableFromBottomArgs<Route.EditProfile> { NewUserMetadataScreen(nav, accountViewModel) }
-            if (!FeatureFlags.isPrism) {
+            if (FeatureFlags.isPrism) {
                 composable<Route.Search> { SearchScreen(accountViewModel, nav) }
             }
 

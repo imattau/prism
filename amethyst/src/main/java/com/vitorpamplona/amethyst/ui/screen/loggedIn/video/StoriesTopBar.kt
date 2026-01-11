@@ -20,12 +20,9 @@
  */
 package com.vitorpamplona.amethyst.ui.screen.loggedIn.video
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -44,6 +41,7 @@ import com.vitorpamplona.amethyst.ui.navigation.routes.Route
 import com.vitorpamplona.amethyst.ui.navigation.topbars.FeedFilterSpinner
 import com.vitorpamplona.amethyst.ui.navigation.topbars.ShorterTopAppBar
 import com.vitorpamplona.amethyst.ui.navigation.topbars.UserDrawerSearchTopBar
+import com.vitorpamplona.amethyst.ui.note.SearchIcon
 import com.vitorpamplona.amethyst.ui.screen.FeedDefinition
 import com.vitorpamplona.amethyst.ui.screen.TopNavFilterState
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.AccountViewModel
@@ -78,7 +76,7 @@ fun StoriesTopBar(
                 }
             },
             navigationIcon = {
-                IconButton(onClick = { nav.nav(Route.Profile(userProfile.pubkeyHex)) }) {
+                IconButton(onClick = { menuExpanded = true }) {
                     val profilePicture by observeUserPicture(userProfile, accountViewModel)
                     RobohashFallbackAsyncImage(
                         robot = userProfile.pubkeyHex,
@@ -92,77 +90,8 @@ fun StoriesTopBar(
                 }
             },
             actions = {
-                IconButton(onClick = { menuExpanded = true }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = stringRes(id = R.string.more_options),
-                        modifier = Size22Modifier,
-                        tint = MaterialTheme.colorScheme.placeholderText,
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { androidx.compose.material3.Text(stringRes(id = R.string.preferences)) },
-                        onClick = {
-                            menuExpanded = false
-                            nav.nav(Route.Settings)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { androidx.compose.material3.Text(stringRes(id = R.string.user_preferences)) },
-                        onClick = {
-                            menuExpanded = false
-                            nav.nav(Route.UserSettings)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { androidx.compose.material3.Text(stringRes(id = R.string.security_filters)) },
-                        onClick = {
-                            menuExpanded = false
-                            nav.nav(Route.SecurityFilters)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { androidx.compose.material3.Text(stringRes(id = R.string.privacy_options)) },
-                        onClick = {
-                            menuExpanded = false
-                            nav.nav(Route.PrivacyOptions)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { androidx.compose.material3.Text(stringRes(id = R.string.relay_setup)) },
-                        onClick = {
-                            menuExpanded = false
-                            nav.nav(Route.EditRelays)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { androidx.compose.material3.Text(stringRes(id = R.string.media_servers)) },
-                        onClick = {
-                            menuExpanded = false
-                            nav.nav(Route.EditMediaServers)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { androidx.compose.material3.Text(stringRes(id = R.string.show_npub_as_a_qr_code)) },
-                        onClick = {
-                            menuExpanded = false
-                            nav.nav(Route.QRDisplay(userProfile.pubkeyHex))
-                        },
-                    )
-                    accountViewModel.account.settings.keyPair.privKey?.let {
-                        DropdownMenuItem(
-                            text = { androidx.compose.material3.Text(stringRes(id = R.string.backup_keys)) },
-                            onClick = {
-                                menuExpanded = false
-                                backupDialogOpen = true
-                            },
-                        )
-                    }
+                IconButton(onClick = { nav.nav(Route.Search) }) {
+                    SearchIcon(modifier = Size22Modifier, MaterialTheme.colorScheme.placeholderText)
                 }
             },
         )
@@ -172,6 +101,77 @@ fun StoriesTopBar(
                 accountViewModel,
                 onClose = { backupDialogOpen = false },
             )
+        }
+
+        DropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false },
+        ) {
+            DropdownMenuItem(
+                text = { androidx.compose.material3.Text(stringRes(id = R.string.profile)) },
+                onClick = {
+                    menuExpanded = false
+                    nav.nav(Route.Profile(userProfile.pubkeyHex))
+                },
+            )
+            DropdownMenuItem(
+                text = { androidx.compose.material3.Text(stringRes(id = R.string.preferences)) },
+                onClick = {
+                    menuExpanded = false
+                    nav.nav(Route.Settings)
+                },
+            )
+            DropdownMenuItem(
+                text = { androidx.compose.material3.Text(stringRes(id = R.string.user_preferences)) },
+                onClick = {
+                    menuExpanded = false
+                    nav.nav(Route.UserSettings)
+                },
+            )
+            DropdownMenuItem(
+                text = { androidx.compose.material3.Text(stringRes(id = R.string.security_filters)) },
+                onClick = {
+                    menuExpanded = false
+                    nav.nav(Route.SecurityFilters)
+                },
+            )
+            DropdownMenuItem(
+                text = { androidx.compose.material3.Text(stringRes(id = R.string.privacy_options)) },
+                onClick = {
+                    menuExpanded = false
+                    nav.nav(Route.PrivacyOptions)
+                },
+            )
+            DropdownMenuItem(
+                text = { androidx.compose.material3.Text(stringRes(id = R.string.relay_setup)) },
+                onClick = {
+                    menuExpanded = false
+                    nav.nav(Route.EditRelays)
+                },
+            )
+            DropdownMenuItem(
+                text = { androidx.compose.material3.Text(stringRes(id = R.string.media_servers)) },
+                onClick = {
+                    menuExpanded = false
+                    nav.nav(Route.EditMediaServers)
+                },
+            )
+            DropdownMenuItem(
+                text = { androidx.compose.material3.Text(stringRes(id = R.string.show_npub_as_a_qr_code)) },
+                onClick = {
+                    menuExpanded = false
+                    nav.nav(Route.QRDisplay(userProfile.pubkeyHex))
+                },
+            )
+            accountViewModel.account.settings.keyPair.privKey?.let {
+                DropdownMenuItem(
+                    text = { androidx.compose.material3.Text(stringRes(id = R.string.backup_keys)) },
+                    onClick = {
+                        menuExpanded = false
+                        backupDialogOpen = true
+                    },
+                )
+            }
         }
     } else {
         UserDrawerSearchTopBar(accountViewModel, nav) {

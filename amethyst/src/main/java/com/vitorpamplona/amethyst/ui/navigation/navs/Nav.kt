@@ -117,6 +117,7 @@ class Nav(
                 is Route.Note,
                 is Route.EventRedirect,
                 is Route.Profile,
+                is Route.Search,
                 is Route.Settings,
                 is Route.UserSettings,
                 is Route.SecurityFilters,

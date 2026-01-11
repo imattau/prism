@@ -41,6 +41,11 @@ Introduce a new Android Gradle flavor that hides all UI features unrelated to th
   - Profile currently exposes tabs: Notes, Replies, Mutual, Gallery, Follows, Followers, Zaps, Bookmarks, Hashtags, Reports, Relays.
   - ~~Remove non-video tabs for prism (Notes/Replies/Mutual/Bookmarks/Hashtags/Reports/Relays).~~
   - ~~Keep only video-relevant tabs for prism (Gallery, Follows, Followers, Zaps).~~
+- Add search for prism-only:
+  - ~~Decide where search is exposed in prism (top bar action vs. menu item).~~
+  - ~~Gate search UI to prism builds only (do not re-enable in other flavors).~~
+  - ~~Ensure search route is whitelisted for prism navigation only.~~
+  - ~~Verify search results do not expose non-video entrypoints (or route to video-safe screens).~~
 - Add flavor-specific resources:
   - ~~Create `amethyst/src/prism/res/` overrides for menus, labels, and nav strings.~~
   - ~~Provide neutral/empty copy where removal is not possible.~~
@@ -94,5 +99,7 @@ Introduce a new Android Gradle flavor that hides all UI features unrelated to th
 - Profile/search/settings entrypoints are currently suppressed in `prism`; menu items must be explicitly whitelisted.
 - `StoriesTopBar` now provides a prism menu (profile chip + settings dropdown) limited to whitelisted routes.
 - `ProfileScreen` now limits prism tabs to Gallery, Follows, Followers, and Zaps.
+- `StoriesTopBar` now includes a prism-only search action.
+- `SearchScreen` now keeps users/hashtags and limits prism notes to video events; non-prism-only channel sections stay hidden.
 - Assumptions:
 - Open questions:

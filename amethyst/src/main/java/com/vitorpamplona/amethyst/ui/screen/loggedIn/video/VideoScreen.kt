@@ -20,6 +20,7 @@
  */
 package com.vitorpamplona.amethyst.ui.screen.loggedIn.video
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -127,6 +128,12 @@ fun VideoScreen(
     WatchLifecycleAndUpdateModel(videoFeedContentState)
     WatchAccountForVideoScreen(videoFeedContentState = videoFeedContentState, accountViewModel = accountViewModel)
     VideoFilterAssemblerSubscription(accountViewModel)
+
+    if (FeatureFlags.isPrism) {
+        BackHandler {
+            videoFeedContentState.sendToTop()
+        }
+    }
 
     DisappearingScaffold(
         isInvertedLayout = false,
