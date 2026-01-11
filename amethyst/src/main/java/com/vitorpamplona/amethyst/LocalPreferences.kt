@@ -97,6 +97,7 @@ private object PrefKeys {
     const val DEFAULT_STORIES_FOLLOW_LIST = "defaultStoriesFollowList"
     const val DEFAULT_NOTIFICATION_FOLLOW_LIST = "defaultNotificationFollowList"
     const val DEFAULT_DISCOVERY_FOLLOW_LIST = "defaultDiscoveryFollowList"
+    const val VIDEO_FEED_VIDEOS_ONLY = "videoFeedVideosOnly"
     const val ZAP_PAYMENT_REQUEST_SERVER = "zapPaymentServer"
     const val LATEST_USER_METADATA = "latestUserMetadata"
     const val LATEST_CONTACT_LIST = "latestContactList"
@@ -149,6 +150,9 @@ object LocalPreferences {
     }
 
     private suspend fun updateCurrentAccount(info: AccountInfo?) {
+        if (BuildConfig.DEBUG) {
+            Log.d("LocalPreferences", "updateCurrentAccount info=$info")
+        }
         if (info == null) {
             currentAccount = null
             withContext(Dispatchers.IO) {
@@ -168,12 +172,18 @@ object LocalPreferences {
         if (savedAccounts.value == null) {
             withContext(Dispatchers.IO) {
                 with(encryptedPreferences()) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d("LocalPreferences", "Loading saved accounts from encrypted preferences")
+                    }
                     val newSystemOfAccounts =
                         getString(PrefKeys.ALL_ACCOUNT_INFO, "[]")?.let {
                             JsonMapper.fromJson<List<AccountInfo>>(it)
                         }
 
                     if (!newSystemOfAccounts.isNullOrEmpty()) {
+                        if (BuildConfig.DEBUG) {
+                            Log.d("LocalPreferences", "Loaded ${newSystemOfAccounts.size} accounts from ALL_ACCOUNT_INFO")
+                        }
                         val refreshedAccounts = newSystemOfAccounts.map(::refreshAccountInfoFromPrefs)
                         savedAccounts.emit(refreshedAccounts)
                         if (refreshedAccounts != newSystemOfAccounts) {
@@ -182,6 +192,9 @@ object LocalPreferences {
                             }
                         }
                     } else {
+                        if (BuildConfig.DEBUG) {
+                            Log.d("LocalPreferences", "No ALL_ACCOUNT_INFO found, attempting migration")
+                        }
                         val oldAccounts = getString(PrefKeys.SAVED_ACCOUNTS, null)?.split(COMMA) ?: listOf()
 
                         val migrated =
@@ -199,10 +212,17 @@ object LocalPreferences {
                                 )
                             }
 
-                        savedAccounts.emit(migrated)
+                        val recovered = if (migrated.isEmpty()) recoverAccountsFromPrefFiles() else migrated
+                        if (BuildConfig.DEBUG) {
+                            Log.d(
+                                "LocalPreferences",
+                                "Recovered ${recovered.size} accounts (migrated=${migrated.size})",
+                            )
+                        }
+                        savedAccounts.emit(recovered)
 
                         edit {
-                            putString(PrefKeys.ALL_ACCOUNT_INFO, JsonMapper.toJson(migrated))
+                            putString(PrefKeys.ALL_ACCOUNT_INFO, JsonMapper.toJson(recovered))
                         }
                     }
                 }
@@ -253,6 +273,27 @@ object LocalPreferences {
         }
     }
 
+    private fun recoverAccountsFromPrefFiles(): List<AccountInfo> {
+        val prefix = "${EncryptedStorage.prefsFileName()}_"
+        val prefsDir = File(prefsDirPath)
+        val npubs =
+            prefsDir
+                .list()
+                ?.mapNotNull { name ->
+                    if (name.startsWith(prefix) && name.endsWith(".xml")) {
+                        val npub = name.removePrefix(prefix).removeSuffix(".xml")
+                        if (pubKeyFromNpub(npub) != null) npub else null
+                    } else {
+                        null
+                    }
+                }?.distinct()
+                ?: emptyList()
+
+        return npubs.map { npub ->
+            refreshAccountInfoFromPrefs(AccountInfo(npub = npub))
+        }
+    }
+
     private val prefsDirPath: String
         get() = "${Amethyst.instance.appContext.filesDir.parent}/shared_prefs/"
 
@@ -267,6 +308,20 @@ object LocalPreferences {
             AccountInfo(
                 npub,
                 accountSettings.isWriteable(),
+                accountSettings.externalSignerPackageName != null,
+                accountSettings.transientAccount,
+                accountSettings.externalSignerPackageName,
+            )
+        updateCurrentAccount(accInfo)
+        addAccount(accInfo)
+    }
+
+    private suspend fun ensureAccountRecorded(accountSettings: AccountSettings) {
+        val npub = accountSettings.keyPair.pubKey.toNpub()
+        val accInfo =
+            AccountInfo(
+                npub,
+                accountSettings.keyPair.privKey != null,
                 accountSettings.externalSignerPackageName != null,
                 accountSettings.transientAccount,
                 accountSettings.externalSignerPackageName,
@@ -342,6 +397,12 @@ object LocalPreferences {
         if (!settings.transientAccount) {
             withContext(Dispatchers.IO) {
                 val prefs = encryptedPreferences(settings.keyPair.pubKey.toNpub())
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LocalPreferences",
+                        "Persisting account npub=${settings.keyPair.pubKey.toNpub()} externalSigner=${settings.externalSignerPackageName != null}",
+                    )
+                }
                 prefs.edit {
                     putBoolean(PrefKeys.LOGIN_WITH_EXTERNAL_SIGNER, settings.externalSignerPackageName != null)
                     if (settings.externalSignerPackageName != null) {
@@ -367,6 +428,7 @@ object LocalPreferences {
                         PrefKeys.DEFAULT_DISCOVERY_FOLLOW_LIST,
                         settings.defaultDiscoveryFollowList.value,
                     )
+                    putBoolean(PrefKeys.VIDEO_FEED_VIDEOS_ONLY, settings.videoFeedVideosOnly.value)
 
                     putOrRemove(PrefKeys.ZAP_PAYMENT_REQUEST_SERVER, settings.zapPaymentRequest.value?.denormalize())
 
@@ -428,18 +490,27 @@ object LocalPreferences {
 
     suspend fun loadAccountConfigFromEncryptedStorage(): AccountSettings? {
         val current = currentAccount()
+        if (BuildConfig.DEBUG) {
+            Log.d("LocalPreferences", "loadAccountConfigFromEncryptedStorage current=$current")
+        }
         if (current != null) {
-            loadAccountConfigFromEncryptedStorage(current)?.let { return it }
+            loadAccountConfigFromEncryptedStorage(current)?.let {
+                ensureAccountRecorded(it)
+                return it
+            }
         }
 
         val accounts = savedAccounts()
+        if (BuildConfig.DEBUG) {
+            Log.d("LocalPreferences", "Trying fallback from saved accounts size=${accounts.size}")
+        }
         for (account in accounts.filter { !it.isTransient } + accounts.filter { it.isTransient }) {
             loadAccountConfigFromEncryptedStorage(account.npub)?.let {
-                updateCurrentAccount(account)
+                ensureAccountRecorded(it)
                 return it
             }
             accountSettingsFromInfo(account)?.let {
-                updateCurrentAccount(account)
+                ensureAccountRecorded(it)
                 return it
             }
         }
@@ -509,8 +580,15 @@ object LocalPreferences {
                     val privKey = getString(PrefKeys.NOSTR_PRIVKEY, null)
                     val pubKey =
                         getString(PrefKeys.NOSTR_PUBKEY, null)
+                            ?: privKey?.let { KeyPair(privKey = it.hexToByteArray()).pubKey.toHexKey() }
                             ?: npub?.let { pubKeyFromNpub(it) }
                             ?: return@with null
+                    if (BuildConfig.DEBUG) {
+                        Log.d(
+                            "LocalPreferences",
+                            "Loaded prefs for npub=$npub hasPrivKey=${!privKey.isNullOrBlank()} hasPubKey=${pubKey.isNotBlank()}",
+                        )
+                    }
                     val externalSignerPackageName =
                         getString(PrefKeys.SIGNER_PACKAGE_NAME, null)
                             ?: if (getBoolean(PrefKeys.LOGIN_WITH_EXTERNAL_SIGNER, false)) "com.greenart7c3.nostrsigner" else null
@@ -523,6 +601,7 @@ object LocalPreferences {
                         getString(PrefKeys.DEFAULT_NOTIFICATION_FOLLOW_LIST, null) ?: GLOBAL_FOLLOWS
                     val defaultDiscoveryFollowList =
                         getString(PrefKeys.DEFAULT_DISCOVERY_FOLLOW_LIST, null) ?: GLOBAL_FOLLOWS
+                    val videoFeedVideosOnly = getBoolean(PrefKeys.VIDEO_FEED_VIDEOS_ONLY, false)
 
                     val zapPaymentRequestServer = parseOrNull<Nip47WalletConnect.Nip47URI>(PrefKeys.ZAP_PAYMENT_REQUEST_SERVER)
                     val defaultFileServer = parseOrNull<ServerName>(PrefKeys.DEFAULT_FILE_SERVER) ?: DEFAULT_MEDIA_SERVERS[0]
@@ -570,6 +649,7 @@ object LocalPreferences {
                         defaultStoriesFollowList = MutableStateFlow(defaultStoriesFollowList),
                         defaultNotificationFollowList = MutableStateFlow(defaultNotificationFollowList),
                         defaultDiscoveryFollowList = MutableStateFlow(defaultDiscoveryFollowList),
+                        videoFeedVideosOnly = MutableStateFlow(videoFeedVideosOnly),
                         zapPaymentRequest = MutableStateFlow(zapPaymentRequestServer?.normalize()),
                         hideDeleteRequestDialog = hideDeleteRequestDialog,
                         hideBlockAlertDialog = hideBlockAlertDialog,

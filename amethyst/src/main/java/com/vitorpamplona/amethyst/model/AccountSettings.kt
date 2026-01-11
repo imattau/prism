@@ -119,6 +119,7 @@ class AccountSettings(
     val defaultStoriesFollowList: MutableStateFlow<String> = MutableStateFlow(GLOBAL_FOLLOWS),
     val defaultNotificationFollowList: MutableStateFlow<String> = MutableStateFlow(GLOBAL_FOLLOWS),
     val defaultDiscoveryFollowList: MutableStateFlow<String> = MutableStateFlow(GLOBAL_FOLLOWS),
+    val videoFeedVideosOnly: MutableStateFlow<Boolean> = MutableStateFlow(false),
     var zapPaymentRequest: MutableStateFlow<Nip47WalletConnect.Nip47URINorm?> = MutableStateFlow(null),
     var hideDeleteRequestDialog: Boolean = false,
     var hideBlockAlertDialog: Boolean = false,
@@ -191,6 +192,15 @@ class AccountSettings(
     fun changeZapPaymentRequest(newServer: Nip47WalletConnect.Nip47URINorm?): Boolean {
         if (zapPaymentRequest.value != newServer) {
             zapPaymentRequest.tryEmit(newServer)
+            saveAccountSettings()
+            return true
+        }
+        return false
+    }
+
+    fun setVideoFeedVideosOnly(enabled: Boolean): Boolean {
+        if (videoFeedVideosOnly.value != enabled) {
+            videoFeedVideosOnly.tryEmit(enabled)
             saveAccountSettings()
             return true
         }

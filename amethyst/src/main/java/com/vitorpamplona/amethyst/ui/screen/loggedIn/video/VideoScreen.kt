@@ -33,31 +33,43 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vitorpamplona.amethyst.FeatureFlags
 import com.vitorpamplona.amethyst.R
+import com.vitorpamplona.amethyst.commons.richtext.BaseMediaContent
+import com.vitorpamplona.amethyst.commons.richtext.MediaUrlVideo
 import com.vitorpamplona.amethyst.model.Note
+import com.vitorpamplona.amethyst.service.CachedRichTextParser
 import com.vitorpamplona.amethyst.ui.actions.CrossfadeIfEnabled
 import com.vitorpamplona.amethyst.ui.components.ClickableBox
 import com.vitorpamplona.amethyst.ui.components.ObserveDisplayNip05Status
+import com.vitorpamplona.amethyst.ui.components.SensitivityWarning
+import com.vitorpamplona.amethyst.ui.components.ZoomableContentView
 import com.vitorpamplona.amethyst.ui.feeds.FeedContentState
 import com.vitorpamplona.amethyst.ui.feeds.FeedEmpty
 import com.vitorpamplona.amethyst.ui.feeds.FeedError
@@ -73,6 +85,7 @@ import com.vitorpamplona.amethyst.ui.navigation.bottombars.AppBottomBar
 import com.vitorpamplona.amethyst.ui.navigation.navs.INav
 import com.vitorpamplona.amethyst.ui.navigation.routes.Route
 import com.vitorpamplona.amethyst.ui.navigation.routes.routeFor
+import com.vitorpamplona.amethyst.ui.note.BaseUserPicture
 import com.vitorpamplona.amethyst.ui.note.BoostReaction
 import com.vitorpamplona.amethyst.ui.note.BoostText
 import com.vitorpamplona.amethyst.ui.note.CheckHiddenFeedWatchBlockAndReport
@@ -98,6 +111,7 @@ import com.vitorpamplona.amethyst.ui.theme.DoubleHorzSpacer
 import com.vitorpamplona.amethyst.ui.theme.HalfFeedPadding
 import com.vitorpamplona.amethyst.ui.theme.Size20Modifier
 import com.vitorpamplona.amethyst.ui.theme.Size22Modifier
+import com.vitorpamplona.amethyst.ui.theme.Size25dp
 import com.vitorpamplona.amethyst.ui.theme.Size35Modifier
 import com.vitorpamplona.amethyst.ui.theme.Size40Modifier
 import com.vitorpamplona.amethyst.ui.theme.Size40dp
@@ -105,9 +119,13 @@ import com.vitorpamplona.amethyst.ui.theme.Size55dp
 import com.vitorpamplona.amethyst.ui.theme.VideoReactionColumnPadding
 import com.vitorpamplona.amethyst.ui.theme.placeholderText
 import com.vitorpamplona.quartz.experimental.nip95.header.FileStorageHeaderEvent
+import com.vitorpamplona.quartz.nip01Core.core.toImmutableListOfLists
+import com.vitorpamplona.quartz.nip10Notes.TextNoteEvent
 import com.vitorpamplona.quartz.nip68Picture.PictureEvent
 import com.vitorpamplona.quartz.nip71Video.VideoEvent
 import com.vitorpamplona.quartz.nip94FileMetadata.FileHeaderEvent
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
 fun VideoScreen(
@@ -183,11 +201,13 @@ fun WatchAccountForVideoScreen(
     accountViewModel: AccountViewModel,
 ) {
     val listState by accountViewModel.account.liveStoriesFollowLists.collectAsStateWithLifecycle()
+    val videosOnly by accountViewModel.account.settings.videoFeedVideosOnly
+        .collectAsStateWithLifecycle()
     val hiddenUsers =
         accountViewModel.account.hiddenUsers.flow
             .collectAsStateWithLifecycle()
 
-    LaunchedEffect(accountViewModel, listState, hiddenUsers) {
+    LaunchedEffect(accountViewModel, listState, videosOnly, hiddenUsers) {
         videoFeedContentState.checkKeysInvalidateDataAndSendToTop()
     }
 }
@@ -232,14 +252,38 @@ private fun LoadedState(
     accountViewModel: AccountViewModel,
     nav: INav,
 ) {
-    RefresheableBox(invalidateableContent = videoFeedContentState) {
-        SlidingCarousel(
-            loaded,
-            pagerStateKey,
-            videoFeedContentState,
-            accountViewModel,
-            nav,
-        )
+    val newNotesState = remember { mutableStateOf<List<Note>>(emptyList()) }
+    val isAtTopState = remember { mutableStateOf(true) }
+    RefresheableBox(
+        onRefresh = {
+            videoFeedContentState.lastNoteCreatedAtWhenFullyLoaded.tryEmit(null)
+            accountViewModel.dataSources().video.hardRefresh(accountViewModel.account)
+            videoFeedContentState.invalidateData()
+        },
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            SlidingCarousel(
+                loaded,
+                pagerStateKey,
+                videoFeedContentState,
+                accountViewModel,
+                nav,
+                newNotesState,
+                isAtTopState,
+            )
+
+            if (FeatureFlags.isPrism && newNotesState.value.isNotEmpty() && !isAtTopState.value) {
+                NewItemsPill(
+                    newNotes = newNotesState.value,
+                    accountViewModel = accountViewModel,
+                    onClick = {
+                        videoFeedContentState.sendToTop()
+                        accountViewModel.dataSources().video.hardRefresh(accountViewModel.account)
+                        videoFeedContentState.invalidateData()
+                    },
+                )
+            }
+        }
     }
 }
 
@@ -250,8 +294,11 @@ fun SlidingCarousel(
     videoFeedContentState: FeedContentState,
     accountViewModel: AccountViewModel,
     nav: INav,
+    newNotesState: androidx.compose.runtime.MutableState<List<Note>>,
+    isAtTopState: androidx.compose.runtime.MutableState<Boolean>,
 ) {
     val items by loaded.feed.collectAsStateWithLifecycle()
+    val lastSeenTopId = remember { mutableStateOf<String?>(null) }
 
     val pagerState =
         if (pagerStateKey != null) {
@@ -261,6 +308,35 @@ fun SlidingCarousel(
         }
 
     WatchScrollToTop(videoFeedContentState, pagerState)
+
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }
+            .distinctUntilChanged()
+            .collect { page ->
+                val isAtTop = page == 0
+                isAtTopState.value = isAtTop
+                if (isAtTop) {
+                    lastSeenTopId.value = items.list.firstOrNull()?.idHex
+                }
+            }
+    }
+
+    LaunchedEffect(items.list, isAtTopState.value, lastSeenTopId.value) {
+        if (isAtTopState.value) {
+            lastSeenTopId.value = items.list.firstOrNull()?.idHex
+            newNotesState.value = emptyList()
+            return@LaunchedEffect
+        }
+
+        val topId = lastSeenTopId.value ?: return@LaunchedEffect
+        val index = items.list.indexOfFirst { it.idHex == topId }
+        newNotesState.value =
+            if (index > 0) {
+                items.list.take(index)
+            } else {
+                emptyList()
+            }
+    }
 
     VerticalPager(
         state = pagerState,
@@ -290,6 +366,59 @@ fun SlidingCarousel(
 }
 
 @Composable
+private fun NewItemsPill(
+    newNotes: List<Note>,
+    accountViewModel: AccountViewModel,
+    onClick: () -> Unit,
+) {
+    val count = newNotes.size
+    val label = if (count > 9) "10+" else count.toString()
+    val avatarKeys =
+        remember(newNotes) {
+            newNotes.mapNotNull { it.author?.pubkeyHex }.distinct().take(3)
+        }
+
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Surface(
+            modifier =
+                Modifier
+                    .clickable { onClick() },
+            shape = RoundedCornerShape(999.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shadowElevation = 6.dp,
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row {
+                    avatarKeys.forEachIndexed { index, pubkey ->
+                        BaseUserPicture(
+                            baseUserHex = pubkey,
+                            size = Size25dp,
+                            accountViewModel = accountViewModel,
+                            outerModifier = Modifier.offset(x = (index * -6).dp),
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "$label new",
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun RenderVideoOrPictureNote(
     note: Note,
     accountViewModel: AccountViewModel,
@@ -307,6 +436,33 @@ private fun RenderVideoOrPictureNote(
                 FileStorageHeaderDisplay(note, false, ContentScale.Fit, accountViewModel)
             } else if (noteEvent is VideoEvent) {
                 JustVideoDisplay(note, false, ContentScale.Fit, accountViewModel)
+            } else if (noteEvent is TextNoteEvent) {
+                val mediaState =
+                    remember(noteEvent) {
+                        CachedRichTextParser.parseText(
+                            noteEvent.content,
+                            noteEvent.tags.toImmutableListOfLists(),
+                        )
+                    }
+                val mediaContent =
+                    remember(mediaState) {
+                        mediaState.imageList.firstOrNull { it is MediaUrlVideo } ?: mediaState.imageList.firstOrNull()
+                    }
+                mediaContent?.let { content ->
+                    val mediaList =
+                        remember(mediaState) {
+                            mediaState.imageList.map { it as BaseMediaContent }.toImmutableList()
+                        }
+                    SensitivityWarning(note = note, accountViewModel = accountViewModel) {
+                        ZoomableContentView(
+                            content = content,
+                            images = mediaList,
+                            roundedCorner = false,
+                            contentScale = ContentScale.Fit,
+                            accountViewModel = accountViewModel,
+                        )
+                    }
+                }
             }
         }
     }
@@ -442,9 +598,15 @@ fun ReactionsColumn(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = VideoReactionColumnPadding,
     ) {
+        val reactionTint =
+            if (FeatureFlags.isPrism) {
+                MaterialTheme.colorScheme.secondary
+            } else {
+                MaterialTheme.colorScheme.onBackground
+            }
         ReplyReaction(
             baseNote = baseNote,
-            grayTint = MaterialTheme.colorScheme.onBackground,
+            grayTint = reactionTint,
             accountViewModel = accountViewModel,
             iconSizeModifier = Size40Modifier,
         ) {
@@ -456,13 +618,13 @@ fun ReactionsColumn(
         if (FeatureFlags.isPrism) {
             RepostOnlyReaction(
                 baseNote = baseNote,
-                grayTint = MaterialTheme.colorScheme.onBackground,
+                grayTint = reactionTint,
                 accountViewModel = accountViewModel,
             )
         } else {
             BoostReaction(
                 baseNote = baseNote,
-                grayTint = MaterialTheme.colorScheme.onBackground,
+                grayTint = reactionTint,
                 accountViewModel = accountViewModel,
                 iconSizeModifier = Size40Modifier,
                 iconSize = Size40dp,
@@ -479,7 +641,7 @@ fun ReactionsColumn(
         }
         LikeReaction(
             baseNote = baseNote,
-            grayTint = MaterialTheme.colorScheme.onBackground,
+            grayTint = reactionTint,
             accountViewModel = accountViewModel,
             nav = nav,
             iconSize = Size40dp,
@@ -488,7 +650,7 @@ fun ReactionsColumn(
         )
         ZapReaction(
             baseNote = baseNote,
-            grayTint = MaterialTheme.colorScheme.onBackground,
+            grayTint = reactionTint,
             accountViewModel = accountViewModel,
             iconSize = Size40dp,
             iconSizeModifier = Size40Modifier,

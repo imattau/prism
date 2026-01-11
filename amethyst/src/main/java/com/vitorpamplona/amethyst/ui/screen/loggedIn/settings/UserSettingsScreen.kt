@@ -36,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -47,6 +48,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vitorpamplona.amethyst.FeatureFlags
 import com.vitorpamplona.amethyst.R
 import com.vitorpamplona.amethyst.ui.navigation.navs.EmptyNav
 import com.vitorpamplona.amethyst.ui.navigation.navs.INav
@@ -87,9 +90,28 @@ fun UserSettingsScreen(
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                if (FeatureFlags.isPrism) {
+                    VideoFeedVideosOnlySetting(accountViewModel)
+                }
                 DontTranslateFromSetting(accountViewModel)
             }
         }
+    }
+}
+
+@Composable
+fun VideoFeedVideosOnlySetting(accountViewModel: AccountViewModel) {
+    val videosOnly by accountViewModel.account.settings.videoFeedVideosOnly
+        .collectAsStateWithLifecycle()
+
+    SettingsRow(
+        name = R.string.video_feed_videos_only_title,
+        description = R.string.video_feed_videos_only_description,
+    ) {
+        Switch(
+            checked = videosOnly,
+            onCheckedChange = { accountViewModel.account.settings.setVideoFeedVideosOnly(it) },
+        )
     }
 }
 

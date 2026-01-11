@@ -20,18 +20,23 @@
  */
 package com.vitorpamplona.amethyst.ui.screen.loggedIn.video.dal
 
+import com.vitorpamplona.amethyst.commons.richtext.MediaUrlContent
+import com.vitorpamplona.amethyst.commons.richtext.MediaUrlVideo
 import com.vitorpamplona.amethyst.commons.richtext.RichTextParser
 import com.vitorpamplona.amethyst.model.Account
 import com.vitorpamplona.amethyst.model.AddressableNote
 import com.vitorpamplona.amethyst.model.LocalCache
 import com.vitorpamplona.amethyst.model.Note
 import com.vitorpamplona.amethyst.model.filterIntoSet
+import com.vitorpamplona.amethyst.service.CachedRichTextParser
 import com.vitorpamplona.amethyst.ui.dal.AdditiveFeedFilter
 import com.vitorpamplona.amethyst.ui.dal.DefaultFeedOrder
 import com.vitorpamplona.amethyst.ui.dal.FilterByListParams
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.SUPPORTED_VIDEO_FEED_MIME_TYPES_SET
 import com.vitorpamplona.quartz.experimental.nip95.header.FileStorageHeaderEvent
 import com.vitorpamplona.quartz.nip01Core.core.AddressableEvent
+import com.vitorpamplona.quartz.nip01Core.core.toImmutableListOfLists
+import com.vitorpamplona.quartz.nip10Notes.TextNoteEvent
 import com.vitorpamplona.quartz.nip51Lists.muteList.MuteListEvent
 import com.vitorpamplona.quartz.nip51Lists.peopleList.PeopleListEvent
 import com.vitorpamplona.quartz.nip68Picture.PictureEvent
@@ -53,7 +58,12 @@ class VideoFeedFilter(
             supportedFileExtensions = (RichTextParser.videoExtensions + RichTextParser.imageExtensions).toSet(),
         )
 
-    override fun feedKey(): String = account.userProfile().pubkeyHex + "-" + account.settings.defaultStoriesFollowList.value
+    override fun feedKey(): String =
+        account.userProfile().pubkeyHex +
+            "-" +
+            account.settings.defaultStoriesFollowList.value +
+            "-" +
+            account.settings.videoFeedVideosOnly.value
 
     override fun limit() = 300
 
@@ -91,13 +101,33 @@ class VideoFeedFilter(
         mimeType: String?,
     ) = baseUrls.any { videoFeedSupport.acceptableUrl(it, mimeType) }
 
+    private fun isVideoMimeType(mimeType: String?): Boolean = mimeType?.startsWith("video/") == true
+
+    private fun acceptableVideoOnlyUrls(
+        baseUrls: List<String>,
+        mimeType: String?,
+    ): Boolean {
+        if (isVideoMimeType(mimeType)) return true
+        return baseUrls.any { RichTextParser.isVideoUrl(it) }
+    }
+
     fun acceptableVideoiMetas(iMetas: List<VideoMeta>): Boolean = iMetas.any { videoFeedSupport.acceptableUrl(it.url, it.mimeType) }
 
     fun acceptablePictureiMetas(iMetas: List<PictureMeta>): Boolean = iMetas.any { videoFeedSupport.acceptableUrl(it.url, it.mimeType) }
 
-    fun acceptanceEvent(noteEvent: PictureEvent) = acceptablePictureiMetas(noteEvent.imetaTags())
+    fun acceptanceEvent(
+        noteEvent: PictureEvent,
+        videosOnly: Boolean,
+    ) = !videosOnly && acceptablePictureiMetas(noteEvent.imetaTags())
 
-    fun acceptanceEvent(noteEvent: FileHeaderEvent) = acceptableUrls(noteEvent.urls(), noteEvent.mimeType())
+    fun acceptanceEvent(
+        noteEvent: FileHeaderEvent,
+        videosOnly: Boolean,
+    ) = if (videosOnly) {
+        acceptableVideoOnlyUrls(noteEvent.urls(), noteEvent.mimeType())
+    } else {
+        acceptableUrls(noteEvent.urls(), noteEvent.mimeType())
+    }
 
     fun acceptanceEvent(noteEvent: VideoVerticalEvent) = acceptableVideoiMetas(noteEvent.imetaTags())
 
@@ -107,24 +137,46 @@ class VideoFeedFilter(
 
     fun acceptanceEvent(noteEvent: VideoShortEvent) = acceptableVideoiMetas(noteEvent.imetaTags())
 
+    fun acceptanceEvent(
+        noteEvent: TextNoteEvent,
+        videosOnly: Boolean,
+    ): Boolean {
+        val state = CachedRichTextParser.parseText(noteEvent.content, noteEvent.tags.toImmutableListOfLists())
+        return if (videosOnly) {
+            state.imageList.any { content ->
+                content is MediaUrlVideo && videoFeedSupport.acceptableUrl(content.url, content.mimeType)
+            }
+        } else {
+            state.imageList.any { content ->
+                content is MediaUrlContent && videoFeedSupport.acceptableUrl(content.url, content.mimeType)
+            }
+        }
+    }
+
     fun acceptableEvent(
         note: Note,
         params: FilterByListParams,
     ): Boolean {
         val noteEvent = note.event
+        val videosOnly = account.settings.videoFeedVideosOnly.value
 
         if (noteEvent is AddressableEvent && note !is AddressableNote) {
             return false
         }
 
         return (
-            (noteEvent is FileHeaderEvent && acceptanceEvent(noteEvent)) ||
+            (noteEvent is FileHeaderEvent && acceptanceEvent(noteEvent, videosOnly)) ||
                 (noteEvent is VideoVerticalEvent && acceptanceEvent(noteEvent)) ||
                 (noteEvent is VideoHorizontalEvent && acceptanceEvent(noteEvent)) ||
                 (noteEvent is VideoNormalEvent && acceptanceEvent(noteEvent)) ||
                 (noteEvent is VideoShortEvent && acceptanceEvent(noteEvent)) ||
-                (noteEvent is FileStorageHeaderEvent && noteEvent.isOneOf(SUPPORTED_VIDEO_FEED_MIME_TYPES_SET)) ||
-                (noteEvent is PictureEvent && acceptanceEvent(noteEvent))
+                (
+                    noteEvent is FileStorageHeaderEvent &&
+                        noteEvent.isOneOf(SUPPORTED_VIDEO_FEED_MIME_TYPES_SET) &&
+                        (!videosOnly || isVideoMimeType(noteEvent.mimeType()))
+                ) ||
+                (noteEvent is PictureEvent && acceptanceEvent(noteEvent, videosOnly)) ||
+                (noteEvent is TextNoteEvent && acceptanceEvent(noteEvent, videosOnly))
         ) &&
             params.match(noteEvent, note.relays) &&
             (params.isHiddenList || account.isAcceptable(note))
