@@ -94,7 +94,10 @@ fun RenderVideoPlayer(
             },
             update = { view ->
                 view.useController = showControls
+                view.controllerAutoShow = false
+                view.controllerShowTimeoutMs = 0
                 if (showControls) {
+                    view.controllerHideOnTouch = true
                     view.showController()
                     controllerVisible.value = true
                     onControllerVisibilityChanged?.let { callback -> callback(true) }
@@ -111,6 +114,7 @@ fun RenderVideoPlayer(
                         },
                     )
                 } else {
+                    view.controllerHideOnTouch = false
                     view.hideController()
                     controllerVisible.value = false
                     onControllerVisibilityChanged?.let { callback -> callback(false) }

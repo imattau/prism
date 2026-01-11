@@ -154,6 +154,7 @@ import com.vitorpamplona.quartz.nip94FileMetadata.FileHeaderEvent
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlin.reflect.KClass
 import kotlin.time.Duration.Companion.seconds
 
 @Composable
@@ -814,6 +815,7 @@ private fun VideoCaptionOverlay(
                     .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
                     .padding(horizontal = 8.dp, vertical = 6.dp),
         ) {
+            val hashtagNav = hashtagFilterNav(accountViewModel, nav)
             RichTextViewer(
                 content = content,
                 canPreview = false,
@@ -826,7 +828,7 @@ private fun VideoCaptionOverlay(
                 tags = tags,
                 backgroundColor = backgroundColor,
                 accountViewModel = accountViewModel,
-                nav = nav,
+                nav = hashtagNav,
             )
         }
     }
@@ -943,6 +945,14 @@ private fun VideoDetailsOverlay(
                 }
                 if (content.isNotBlank()) {
                     val richTextStyle = MaterialTheme.typography.bodySmall.copy(color = overlayTextColor)
+                    val hashtagNav =
+                        hashtagFilterNav(
+                            accountViewModel,
+                            nav,
+                        ) {
+                            onDismiss()
+                            onUserInteraction()
+                        }
                     CompositionLocalProvider(LocalTextStyle provides richTextStyle) {
                         RichTextViewer(
                             content = content,
@@ -952,7 +962,7 @@ private fun VideoDetailsOverlay(
                             tags = event.tags.toImmutableListOfLists(),
                             backgroundColor = remember { mutableStateOf(Color.Transparent) },
                             accountViewModel = accountViewModel,
-                            nav = nav,
+                            nav = hashtagNav,
                         )
                     }
                 }
@@ -1116,6 +1126,46 @@ fun ReactionsColumn(
         }
     }
 }
+
+private fun hashtagFilterNav(
+    accountViewModel: AccountViewModel,
+    nav: INav,
+    onAfter: (() -> Unit)? = null,
+): INav =
+    object : INav {
+        override val navigationScope = nav.navigationScope
+        override val drawerState = nav.drawerState
+
+        override fun closeDrawer() = nav.closeDrawer()
+
+        override fun openDrawer() = nav.openDrawer()
+
+        override fun nav(route: Route) {
+            if (FeatureFlags.isPrism && route is Route.Hashtag) {
+                val normalized = route.hashtag.lowercase()
+                accountViewModel.account.settings.changeDefaultStoriesFollowList("Hashtag/$normalized")
+                accountViewModel.feedStates.videoFeed.checkKeysInvalidateDataAndSendToTop()
+                accountViewModel.feedStates.videoFeed.invalidateData()
+                accountViewModel.dataSources().video.hardRefresh(accountViewModel.account)
+                onAfter?.invoke()
+            } else {
+                nav.nav(route)
+            }
+        }
+
+        override fun nav(computeRoute: suspend () -> Route?) {
+            nav.nav(computeRoute)
+        }
+
+        override fun newStack(route: Route) = nav.newStack(route)
+
+        override fun popBack() = nav.popBack()
+
+        override fun <T : Route> popUpTo(
+            route: Route,
+            klass: KClass<T>,
+        ) = nav.popUpTo(route, klass)
+    }
 
 @Composable
 private fun RepostOnlyReaction(
