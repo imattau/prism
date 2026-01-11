@@ -40,6 +40,7 @@ import androidx.core.util.Consumer
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.vitorpamplona.amethyst.Amethyst
+import com.vitorpamplona.amethyst.FeatureFlags
 import com.vitorpamplona.amethyst.R
 import com.vitorpamplona.amethyst.service.crashreports.DisplayCrashMessages
 import com.vitorpamplona.amethyst.service.relayClient.notifyCommand.compose.DisplayNotifyMessages
@@ -127,15 +128,18 @@ fun AppNavigation(
     AccountSwitcherAndLeftDrawerLayout(accountViewModel, accountStateViewModel, nav) {
         NavHost(
             navController = nav.controller,
-            startDestination = Route.Home,
+            startDestination = if (FeatureFlags.isPrism) Route.Video else Route.Home,
             enterTransition = { fadeIn(animationSpec = tween(200)) },
             exitTransition = { fadeOut(animationSpec = tween(200)) },
         ) {
-            composable<Route.Home> { HomeScreen(accountViewModel, nav) }
-            composable<Route.Message> { MessagesScreen(accountViewModel, nav) }
+            if (!FeatureFlags.isPrism) {
+                composable<Route.Home> { HomeScreen(accountViewModel, nav) }
+                composable<Route.Message> { MessagesScreen(accountViewModel, nav) }
+                composable<Route.Discover> { DiscoverScreen(accountViewModel, nav) }
+                composable<Route.Notification> { NotificationScreen(accountViewModel, nav) }
+            }
+
             composable<Route.Video> { VideoScreen(accountViewModel, nav) }
-            composable<Route.Discover> { DiscoverScreen(accountViewModel, nav) }
-            composable<Route.Notification> { NotificationScreen(accountViewModel, nav) }
 
             composableFromEnd<Route.Lists> { ListOfPeopleListsScreen(accountViewModel, nav) }
             composableFromEndArgs<Route.MyPeopleListView> { PeopleListScreen(it.dTag, accountViewModel, nav) }
@@ -156,7 +160,9 @@ fun AppNavigation(
             composableFromBottomArgs<Route.ManualZapSplitPayment> { PayViaIntentScreen(it.paymentId, accountViewModel, nav) }
 
             composableFromBottomArgs<Route.EditProfile> { NewUserMetadataScreen(nav, accountViewModel) }
-            composable<Route.Search> { SearchScreen(accountViewModel, nav) }
+            if (!FeatureFlags.isPrism) {
+                composable<Route.Search> { SearchScreen(accountViewModel, nav) }
+            }
 
             composableFromEnd<Route.SecurityFilters> { SecurityFiltersScreen(accountViewModel, nav) }
             composableFromEnd<Route.PrivacyOptions> { PrivacyOptionsScreen(Amethyst.instance.torPrefs.value, nav) }
@@ -321,14 +327,22 @@ private fun NavigateIfIntentRequested(
     accountViewModel.firstRoute?.let {
         accountViewModel.firstRoute = null
         val currentRoute = getRouteWithArguments(nav.controller)
-        if (!isSameRoute(currentRoute, it)) {
-            nav.newStack(it)
+        val targetRoute = prismRouteOrVideo(it)
+        if (!isSameRoute(currentRoute, targetRoute)) {
+            nav.newStack(targetRoute)
         }
     }
 
     val activity = LocalContext.current.getActivity()
 
     if (activity.intent.action == Intent.ACTION_SEND) {
+        if (FeatureFlags.isPrism) {
+            if (!isBaseRoute<Route.Video>(nav.controller)) {
+                nav.newStack(Route.Video)
+            }
+            return
+        }
+
         // avoids restarting the new Post screen when the intent is for the screen.
         // Microsoft's swift key sends Gifs as new actions
         if (isBaseRoute<Route.NewShortNote>(nav.controller)) return
@@ -374,8 +388,9 @@ private fun NavigateIfIntentRequested(
                             accountStateViewModel.checkAndSwitchUserSync(npub, nextRoute)
                         } else {
                             val currentRoute = getRouteWithArguments(nav.controller)
-                            if (!isSameRoute(currentRoute, nextRoute)) {
-                                nav.newStack(nextRoute)
+                            val targetRoute = prismRouteOrVideo(nextRoute)
+                            if (!isSameRoute(currentRoute, targetRoute)) {
+                                nav.newStack(targetRoute)
                             }
                             actionableNextPage = null
                         }
@@ -405,6 +420,13 @@ private fun NavigateIfIntentRequested(
             val consumer =
                 Consumer<Intent> { intent ->
                     if (intent.action == Intent.ACTION_SEND) {
+                        if (FeatureFlags.isPrism) {
+                            if (!isBaseRoute<Route.Video>(nav.controller)) {
+                                nav.newStack(Route.Video)
+                            }
+                            return@Consumer
+                        }
+
                         // avoids restarting the new Post screen when the intent is for the screen.
                         // Microsoft's swift key sends Gifs as new actions
                         if (!isBaseRoute<Route.NewShortNote>(nav.controller)) {
@@ -430,8 +452,9 @@ private fun NavigateIfIntentRequested(
                                         accountStateViewModel.checkAndSwitchUserSync(npub, newPage)
                                     } else {
                                         val currentRoute = getRouteWithArguments(nav.controller)
-                                        if (!isSameRoute(currentRoute, newPage)) {
-                                            nav.newStack(newPage)
+                                        val targetRoute = prismRouteOrVideo(newPage)
+                                        if (!isSameRoute(currentRoute, targetRoute)) {
+                                            nav.newStack(targetRoute)
                                         }
                                     }
                                 }
@@ -462,6 +485,19 @@ private fun NavigateIfIntentRequested(
         }
     }
 }
+
+private fun prismRouteOrVideo(route: Route): Route =
+    if (!FeatureFlags.isPrism) {
+        route
+    } else {
+        when (route) {
+            is Route.Video,
+            is Route.Note,
+            is Route.EventRedirect,
+            -> route
+            else -> Route.Video
+        }
+    }
 
 fun URI.findParameterValue(parameterName: String): String? =
     rawQuery

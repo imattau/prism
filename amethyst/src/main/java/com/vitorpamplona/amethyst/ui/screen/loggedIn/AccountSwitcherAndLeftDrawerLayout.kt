@@ -37,6 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalConfiguration
+import com.vitorpamplona.amethyst.FeatureFlags
 import com.vitorpamplona.amethyst.ui.navigation.drawer.AccountSwitchBottomSheet
 import com.vitorpamplona.amethyst.ui.navigation.drawer.DrawerContent
 import com.vitorpamplona.amethyst.ui.navigation.navs.INav
@@ -51,6 +52,11 @@ fun AccountSwitcherAndLeftDrawerLayout(
     nav: INav,
     content: @Composable () -> Unit,
 ) {
+    if (FeatureFlags.isPrism) {
+        content()
+        return
+    }
+
     val scope = rememberCoroutineScope()
     var openAccountSwitcherBottomSheet by rememberSaveable { mutableStateOf(false) }
 

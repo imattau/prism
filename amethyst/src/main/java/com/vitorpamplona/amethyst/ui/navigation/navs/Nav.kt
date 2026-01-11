@@ -25,6 +25,7 @@ import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.runtime.Stable
 import androidx.navigation.NavHostController
+import com.vitorpamplona.amethyst.FeatureFlags
 import com.vitorpamplona.amethyst.ui.navigation.routes.Route
 import com.vitorpamplona.amethyst.ui.navigation.routes.getRouteWithArguments
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +48,10 @@ class Nav(
     }
 
     override fun nav(route: Route) {
+        if (!isRouteAllowed(route)) {
+            return
+        }
+
         navigationScope.launch {
             if (getRouteWithArguments(controller) != route) {
                 controller.navigate(route)
@@ -57,6 +62,9 @@ class Nav(
     override fun nav(computeRoute: suspend () -> Route?) {
         navigationScope.launch {
             val route = computeRoute()
+            if (route == null || !isRouteAllowed(route)) {
+                return@launch
+            }
             if (route != null && getRouteWithArguments(controller) != route) {
                 controller.navigate(route)
             }
@@ -64,6 +72,10 @@ class Nav(
     }
 
     override fun newStack(route: Route) {
+        if (!isRouteAllowed(route)) {
+            return
+        }
+
         navigationScope.launch {
             controller.navigate(route) {
                 popUpTo(route) {
@@ -85,10 +97,27 @@ class Nav(
         route: Route,
         klass: KClass<T>,
     ) {
+        if (!isRouteAllowed(route)) {
+            return
+        }
+
         navigationScope.launch {
             controller.navigate(route) {
                 popUpTo<T>(klass) { inclusive = true }
             }
         }
     }
+
+    private fun isRouteAllowed(route: Route): Boolean =
+        if (!FeatureFlags.isPrism) {
+            true
+        } else {
+            when (route) {
+                is Route.Video,
+                is Route.Note,
+                is Route.EventRedirect,
+                is Route.ManualZapSplitPayment -> true
+                else -> false
+            }
+        }
 }

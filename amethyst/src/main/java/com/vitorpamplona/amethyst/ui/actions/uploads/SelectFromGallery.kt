@@ -158,6 +158,37 @@ fun GallerySelect(onImageUri: (ImmutableList<SelectedMedia>) -> Unit = {}) {
 }
 
 @Composable
+fun GallerySelectVideo(onVideoUri: (ImmutableList<SelectedMedia>) -> Unit = {}) {
+    val hasLaunched by remember { mutableStateOf(AtomicBoolean(false)) }
+    val resolver = LocalContext.current.contentResolver
+
+    val launcher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.PickMultipleVisualMedia(10),
+            onResult = { uris: List<Uri> ->
+                onVideoUri(
+                    uris
+                        .map {
+                            SelectedMedia(it, resolver.getType(it))
+                        }.toImmutableList(),
+                )
+                hasLaunched.set(false)
+            },
+        )
+
+    @Composable
+    fun LaunchGallery() {
+        SideEffect {
+            if (!hasLaunched.getAndSet(true)) {
+                launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+            }
+        }
+    }
+
+    LaunchGallery()
+}
+
+@Composable
 fun GallerySelectSingle(onImageUri: (SelectedMedia?) -> Unit = {}) {
     val hasLaunched by remember { mutableStateOf(AtomicBoolean(false)) }
     val resolver = LocalContext.current.contentResolver

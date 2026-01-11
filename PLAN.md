@@ -1,0 +1,76 @@
+# Plan: Video-Only ("TikTok") Flavor
+
+## Goal
+Introduce a new Android Gradle flavor that hides all UI features unrelated to the video component, producing a video-first experience without deleting existing code.
+
+## Tasks
+- Review current flavor setup and module boundaries:
+  - ~~Inspect `amethyst/build.gradle` (or `build.gradle.kts`) for existing productFlavors/buildTypes and manifest placeholders.~~
+  - ~~Identify the Compose root, NavHost, and bottom/top bars that define global navigation.~~
+  - ~~Locate the video feed entrypoint(s), detail screens, and any required viewmodels/services.~~
+  - ~~Map any cross-module dependencies (e.g., `commons`, `quartz`) used by the video flow.~~
+- Define the new product flavor:
+  - ~~Add a `prism` flavor with an `applicationIdSuffix` and any needed manifest placeholders.~~
+  - ~~Ensure flavor-specific source sets exist (`amethyst/src/prism`).~~
+  - ~~Confirm `prismDebug`/`prismRelease` variants appear in Gradle/Android Studio.~~
+- Implement the feature flag foundation:
+  - ~~Decide on flag source (`BuildConfig` field vs. config object).~~
+  - ~~Add the flag to the `prism` flavor and default flavors.~~
+  - ~~Provide a simple accessor (e.g., `FeatureFlags.isPrism`) used throughout UI code.~~
+- Gate navigation and entrypoints:
+  - ~~Update root navigation graph to include only video routes when `prism` is enabled.~~
+  - ~~Gate bottom tabs and drawer items by the feature flag.~~
+  - ~~Ensure deep links and notifications route to video-safe destinations.~~
+- Reduce non-video UI affordances:
+  - ~~Remove or hide app bar actions unrelated to video.~~
+  - ~~Disable or hide profile/search/settings entrypoints for `prism`.~~
+  - ~~Ensure non-video screens are not reachable via back stack or shortcuts.~~
+- Add flavor-specific resources:
+  - ~~Create `amethyst/src/prism/res/` overrides for menus, labels, and nav strings.~~
+  - ~~Provide neutral/empty copy where removal is not possible.~~
+- Validate video-only flow:
+  - Confirm startup lands on the video feed.
+  - Confirm scrolling, open video detail, and back navigation work.
+  - Check that video actions (like, reply, share) behave as expected.
+- Check and test at key points:
+  - Build `./gradlew :amethyst:assemblePrismDebug` after flavor + resource changes.
+  - Run `./gradlew test` after feature-flag wiring to catch regressions.
+  - Run `./gradlew connectedAndroidTest` if UI flows were changed or if instrumented coverage exists.
+  - Manual smoke test: launch, scroll video feed, open video detail, verify no non-video entry points.
+- Verify impact on existing flavors:
+  - Build `./gradlew :amethyst:assembleDebug` to ensure default behavior is unchanged.
+  - Spot-check existing navigation entrypoints for regressions.
+- Document the new flavor:
+  - ~~Add build/run instructions to `README.md` for `prism`.~~
+  - Note limitations or known gaps for the video-only mode.
+
+## Scratchpad
+- Notes:
+- `amethyst/build.gradle` defines flavors `play` (default) and `fdroid`, dimension `channel`.
+- `AppNavigation` (`amethyst/src/main/java/com/vitorpamplona/amethyst/ui/navigation/AppNavigation.kt`) sets `startDestination = Route.Home` and routes `Route.Video` to `VideoScreen`.
+- Bottom nav items are in `BottomBarRoutes.kt`; bottom bar UI in `AppBottomBar.kt`.
+- `VideoScreen` uses `DisappearingScaffold` with `StoriesTopBar`, `AppBottomBar`, and `NewImageButton` in the video flow (`amethyst/src/main/java/com/vitorpamplona/amethyst/ui/screen/loggedIn/video/VideoScreen.kt`).
+- `StoriesTopBar` uses `UserDrawerSearchTopBar` and `FeedFilterSpinner`, which implies drawer/search UI exposure (`amethyst/src/main/java/com/vitorpamplona/amethyst/ui/screen/loggedIn/video/StoriesTopBar.kt`).
+- `NewImageButton` triggers `NewMediaView` via camera/video/gallery actions (`amethyst/src/main/java/com/vitorpamplona/amethyst/ui/screen/loggedIn/video/NewImageButton.kt`).
+- Video rendering uses `JustVideoDisplay` and `VideoEvent` types (Quartz) in the video feed.
+- Video feed state is in `AccountFeedContentStates.videoFeed` and uses `VideoFeedFilter` (`amethyst/src/main/java/com/vitorpamplona/amethyst/ui/screen/loggedIn/AccountFeedContentStates.kt`).
+- Video upload uses shared media actions (`NewMediaModel`, `NewMediaView`, `TakeVideo`, `GallerySelect`) in `amethyst/src/main/java/com/vitorpamplona/amethyst/ui/actions`.
+- Added `prism` product flavor with `applicationIdSuffix ".prism"` and `BuildConfig.IS_PRISM` in `amethyst/build.gradle`.
+- Added `FeatureFlags.isPrism` accessor in `amethyst/src/main/java/com/vitorpamplona/amethyst/FeatureFlags.kt`.
+- `prism` now starts at `Route.Video`, hides the drawer, and reduces bottom navigation to video-only.
+- `VideoScreen` hides the top bar in `prism` to avoid drawer/search actions.
+- `NewImageButton` hides photo capture in `prism` and uses a video-only gallery picker.
+- Added `GallerySelectVideo` and an `upload_video` string for prism-friendly media actions.
+- Added `amethyst/src/prism/res/values/strings.xml` to set the `prism` app name.
+- `prism` overrides `route_video` label via `amethyst/src/prism/res/values/strings.xml`.
+- No menu resource overlays needed (no `res/menu` in this module).
+- Added prism build/install commands to `README.md`.
+- `VideoScreen` disables profile navigation and the note options menu in `prism`.
+- `AppNavigation` omits Home/Message/Discover/Notification/Search routes when `prism` is enabled.
+- `NavigateIfIntentRequested` redirects non-video intents to `Route.Video` in `prism`.
+- Disabled `processPrism*GoogleServices` tasks to avoid missing client errors for the prism package name.
+- Added `prism`-scoped no-op implementations for translation and push notification helpers to satisfy flavor-specific references.
+- `Nav` blocks non-video routes in `prism` (allows video, note, event redirect, and zap payment flows).
+- `VideoScreen` hides boost/quote in `prism` to avoid non-video post composer entrypoints.
+- Assumptions:
+- Open questions:

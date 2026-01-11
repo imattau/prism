@@ -48,10 +48,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.vitorpamplona.amethyst.FeatureFlags
 import com.vitorpamplona.amethyst.R
 import com.vitorpamplona.amethyst.ui.actions.NewMediaModel
 import com.vitorpamplona.amethyst.ui.actions.NewMediaView
 import com.vitorpamplona.amethyst.ui.actions.uploads.GallerySelect
+import com.vitorpamplona.amethyst.ui.actions.uploads.GallerySelectVideo
 import com.vitorpamplona.amethyst.ui.actions.uploads.SelectedMedia
 import com.vitorpamplona.amethyst.ui.actions.uploads.TakePicture
 import com.vitorpamplona.amethyst.ui.actions.uploads.TakeVideo
@@ -95,9 +97,13 @@ fun NewImageButton(
     }
 
     if (wantsToPostFromCamera) {
-        TakePicture { uri ->
+        if (!FeatureFlags.isPrism) {
+            TakePicture { uri ->
+                wantsToPostFromCamera = false
+                pickedURIs = uri
+            }
+        } else {
             wantsToPostFromCamera = false
-            pickedURIs = uri
         }
     }
 
@@ -109,12 +115,21 @@ fun NewImageButton(
     }
 
     if (wantsToPostFromGallery) {
-        GallerySelect(
-            onImageUri = { uri ->
-                wantsToPostFromGallery = false
-                pickedURIs = uri
-            },
-        )
+        if (FeatureFlags.isPrism) {
+            GallerySelectVideo(
+                onVideoUri = { uri ->
+                    wantsToPostFromGallery = false
+                    pickedURIs = uri
+                },
+            )
+        } else {
+            GallerySelect(
+                onImageUri = { uri ->
+                    wantsToPostFromGallery = false
+                    pickedURIs = uri
+                },
+            )
+        }
     }
 
     if (pickedURIs.isNotEmpty()) {
@@ -134,24 +149,26 @@ fun NewImageButton(
             exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
         ) {
             Column {
-                FloatingActionButton(
-                    onClick = {
-                        wantsToPostFromCamera = true
-                        isOpen = false
-                    },
-                    modifier = Size55Modifier,
-                    shape = CircleShape,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CameraAlt,
-                        contentDescription = stringRes(id = R.string.take_a_picture),
-                        modifier = Modifier.size(26.dp),
-                        tint = Color.White,
-                    )
-                }
+                if (!FeatureFlags.isPrism) {
+                    FloatingActionButton(
+                        onClick = {
+                            wantsToPostFromCamera = true
+                            isOpen = false
+                        },
+                        modifier = Size55Modifier,
+                        shape = CircleShape,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = stringRes(id = R.string.take_a_picture),
+                            modifier = Modifier.size(26.dp),
+                            tint = Color.White,
+                        )
+                    }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
 
                 FloatingActionButton(
                     onClick = {
@@ -183,7 +200,12 @@ fun NewImageButton(
                 ) {
                     Icon(
                         imageVector = Icons.Default.AddPhotoAlternate,
-                        contentDescription = stringRes(id = R.string.upload_image),
+                        contentDescription =
+                            if (FeatureFlags.isPrism) {
+                                stringRes(id = R.string.upload_video)
+                            } else {
+                                stringRes(id = R.string.upload_image)
+                            },
                         modifier = Modifier.size(26.dp),
                         tint = Color.White,
                     )

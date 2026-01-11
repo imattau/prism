@@ -48,6 +48,7 @@ android {
         versionCode = 432
         versionName = generateVersionName("1.05.1")
         buildConfigField "String", "RELEASE_NOTES_ID", "\"b457a20195ffcf501389fcb708f0ef73f4ee263e3bba63f1b893a896129e4c79\""
+        buildConfigField "boolean", "IS_PRISM", "false"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -172,6 +173,12 @@ android {
 
         fdroid {
             dimension "channel"
+        }
+
+        prism {
+            dimension "channel"
+            applicationIdSuffix ".prism"
+            buildConfigField "boolean", "IS_PRISM", "true"
         }
     }
 
@@ -377,4 +384,9 @@ dependencies {
     implementation libs.androidx.camera.lifecycle
     implementation libs.androidx.camera.view
     implementation libs.androidx.camera.extensions
+}
+
+afterEvaluate {
+    tasks.matching { it.name.startsWith("processPrism") && it.name.endsWith("GoogleServices") }
+        .configureEach { enabled = false }
 }

@@ -50,6 +50,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vitorpamplona.amethyst.FeatureFlags
 import com.vitorpamplona.amethyst.R
 import com.vitorpamplona.amethyst.model.Note
 import com.vitorpamplona.amethyst.ui.actions.CrossfadeIfEnabled
@@ -127,7 +128,9 @@ fun VideoScreen(
     DisappearingScaffold(
         isInvertedLayout = false,
         topBar = {
-            StoriesTopBar(accountViewModel, nav)
+            if (!FeatureFlags.isPrism) {
+                StoriesTopBar(accountViewModel, nav)
+            }
         },
         bottomBar = {
             AppBottomBar(Route.Video, accountViewModel) { route ->
@@ -312,7 +315,11 @@ private fun RenderAuthorInformation(
     accountViewModel: AccountViewModel,
 ) {
     Row(modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        NoteAuthorPicture(note, Size55dp, accountViewModel = accountViewModel, nav = nav)
+        if (FeatureFlags.isPrism) {
+            NoteAuthorPicture(note, Size55dp, accountViewModel = accountViewModel)
+        } else {
+            NoteAuthorPicture(note, Size55dp, accountViewModel = accountViewModel, nav = nav)
+        }
 
         Spacer(modifier = DoubleHorzSpacer)
 
@@ -326,7 +333,7 @@ private fun RenderAuthorInformation(
                 NoteUsernameDisplay(note, Modifier.weight(1f), accountViewModel = accountViewModel)
                 VideoUserOptionAction(note, accountViewModel, nav)
             }
-            if (accountViewModel.settings.isCompleteUIMode()) {
+            if (!FeatureFlags.isPrism && accountViewModel.settings.isCompleteUIMode()) {
                 Row(modifier = Modifier.fillMaxWidth()) {
                     ObserveDisplayNip05Status(
                         note.author!!,
@@ -351,6 +358,10 @@ private fun VideoUserOptionAction(
     accountViewModel: AccountViewModel,
     nav: INav,
 ) {
+    if (FeatureFlags.isPrism) {
+        return
+    }
+
     val popupExpanded = remember { mutableStateOf(false) }
 
     ClickableBox(
@@ -421,22 +432,24 @@ fun ReactionsColumn(
                 accountViewModel.account,
             )?.let { nav.nav(it) }
         }
-        BoostReaction(
-            baseNote = baseNote,
-            grayTint = MaterialTheme.colorScheme.onBackground,
-            accountViewModel = accountViewModel,
-            iconSizeModifier = Size40Modifier,
-            iconSize = Size40dp,
-            onQuotePress = {
-                nav.nav(
-                    Route.NewShortNote(
-                        quote = baseNote.idHex,
-                    ),
-                )
-            },
-            onForkPress = {
-            },
-        )
+        if (!FeatureFlags.isPrism) {
+            BoostReaction(
+                baseNote = baseNote,
+                grayTint = MaterialTheme.colorScheme.onBackground,
+                accountViewModel = accountViewModel,
+                iconSizeModifier = Size40Modifier,
+                iconSize = Size40dp,
+                onQuotePress = {
+                    nav.nav(
+                        Route.NewShortNote(
+                            quote = baseNote.idHex,
+                        ),
+                    )
+                },
+                onForkPress = {
+                },
+            )
+        }
         LikeReaction(
             baseNote = baseNote,
             grayTint = MaterialTheme.colorScheme.onBackground,

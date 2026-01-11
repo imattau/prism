@@ -22,6 +22,7 @@ package com.vitorpamplona.amethyst.ui.navigation.bottombars
 
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
+import com.vitorpamplona.amethyst.FeatureFlags
 import com.vitorpamplona.amethyst.R
 import com.vitorpamplona.amethyst.ui.navigation.routes.Route
 import com.vitorpamplona.amethyst.ui.theme.Size20dp
@@ -39,10 +40,16 @@ class BottomBarRoute(
 )
 
 val bottomNavigationItems =
-    persistentListOf(
-        BottomBarRoute(Route.Home, R.drawable.ic_home, R.string.route_home, Modifier.size(Size25dp), Modifier.size(Size24dp)),
-        BottomBarRoute(Route.Message, R.drawable.ic_dm, R.string.route_messages),
-        BottomBarRoute(Route.Video, R.drawable.ic_video, R.string.route_video),
-        BottomBarRoute(Route.Discover, R.drawable.ic_sensors, R.string.route_discover),
-        BottomBarRoute(Route.Notification, R.drawable.ic_notifications, R.string.route_notifications),
-    )
+    if (FeatureFlags.isPrism) {
+        persistentListOf(
+            BottomBarRoute(Route.Video, R.drawable.ic_video, R.string.route_video),
+        )
+    } else {
+        persistentListOf(
+            BottomBarRoute(Route.Home, R.drawable.ic_home, R.string.route_home, Modifier.size(Size25dp), Modifier.size(Size24dp)),
+            BottomBarRoute(Route.Message, R.drawable.ic_dm, R.string.route_messages),
+            BottomBarRoute(Route.Video, R.drawable.ic_video, R.string.route_video),
+            BottomBarRoute(Route.Discover, R.drawable.ic_sensors, R.string.route_discover),
+            BottomBarRoute(Route.Notification, R.drawable.ic_notifications, R.string.route_notifications),
+        )
+    }

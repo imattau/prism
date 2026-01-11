@@ -195,6 +195,11 @@ Build the Android app:
 ./gradlew assembleDebug
 ```
 
+Build the Prism (video-only) flavor:
+```bash
+./gradlew :amethyst:assemblePrismDebug
+```
+
 Build and run the Desktop app (requires Java 21+):
 ```bash
 ./gradlew :desktopApp:run
@@ -222,6 +227,11 @@ For the F-Droid build:
 For the Play build:
 ```bash
 ./gradlew installPlayDebug
+```
+
+For the Prism (video-only) build:
+```bash
+./gradlew :amethyst:installPrismDebug
 ```
 
 ## Deploying
