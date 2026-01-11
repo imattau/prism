@@ -22,6 +22,7 @@ package com.vitorpamplona.amethyst.ui.screen.loggedIn.video
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -332,16 +333,19 @@ private fun RenderAuthorInformation(
     accountViewModel: AccountViewModel,
 ) {
     Row(modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (FeatureFlags.isPrism) {
-            NoteAuthorPicture(note, Size55dp, accountViewModel = accountViewModel)
-        } else {
-            NoteAuthorPicture(note, Size55dp, accountViewModel = accountViewModel, nav = nav)
-        }
+        NoteAuthorPicture(note, Size55dp, accountViewModel = accountViewModel, nav = nav)
 
         Spacer(modifier = DoubleHorzSpacer)
 
+        val usernameModifier =
+            if (FeatureFlags.isPrism && note.author != null) {
+                Modifier.clickable { nav.nav(Route.Profile(note.author!!.pubkeyHex)) }
+            } else {
+                Modifier
+            }
+
         Column(
-            Modifier
+            usernameModifier
                 .height(65.dp)
                 .weight(1f),
             verticalArrangement = Arrangement.Center,
