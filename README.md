@@ -174,6 +174,24 @@ There will never be two Notes with the same ID or two User instances with the sa
 
 Lastly, the user's account information (private key/pub key) is stored in the Android KeyStore for security.
 
+# Prism (Video-Only Flavor)
+
+Prism is a video-focused flavor that streamlines Amethyst into a feed-first experience.
+
+![Prism](./prism_header.png)
+
+### What’s Included
+- Video-first navigation
+- Profile tabs limited to Gallery, Follows, Followers, Zaps
+- Repost-only boosts (no quote composer)
+- Prism-only settings menu with whitelisted routes
+
+### Build & Install
+```bash
+./gradlew :amethyst:assemblePrismDebug
+./gradlew :amethyst:installPrismDebug
+```
+
 ## Setup
 
 Make sure to have the following pre-requisites installed:
