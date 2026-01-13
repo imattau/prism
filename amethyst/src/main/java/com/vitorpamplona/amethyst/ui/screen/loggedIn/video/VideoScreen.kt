@@ -704,17 +704,23 @@ private fun RenderVideoOrPictureNote(
                     RenderAuthorInformation(note, nav, accountViewModel, captionVisible.value)
                 }
 
-                Column(
-                    modifier = AuthorInfoVideoFeed.align(Alignment.BottomEnd),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                AnimatedVisibility(
+                    visible = !captionVisible.value,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
                 ) {
-                    ReactionsColumn(
-                        baseNote = note,
-                        accountViewModel = accountViewModel,
-                        nav = nav,
-                        onNavScrollToTop = onNavScrollToTop,
-                    )
+                    Column(
+                        modifier = AuthorInfoVideoFeed.align(Alignment.BottomEnd),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        ReactionsColumn(
+                            baseNote = note,
+                            accountViewModel = accountViewModel,
+                            nav = nav,
+                            onNavScrollToTop = onNavScrollToTop,
+                        )
+                    }
                 }
             }
         }
