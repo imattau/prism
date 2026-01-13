@@ -705,7 +705,7 @@ private fun RenderVideoOrPictureNote(
                 }
 
                 Column(
-                    modifier = AuthorInfoVideoFeed.align(Alignment.CenterEnd),
+                    modifier = AuthorInfoVideoFeed.align(Alignment.BottomEnd),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
