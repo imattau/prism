@@ -22,7 +22,6 @@ package com.vitorpamplona.amethyst.ui.layouts
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.BottomAppBarDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -63,7 +62,6 @@ fun DisappearingScaffold(
     Scaffold(
         modifier =
             Modifier
-                .imePadding()
                 .nestedScroll(topBehavior.nestedScrollConnection)
                 .nestedScroll(bottomBehavior.nestedScrollConnection),
         bottomBar = {
