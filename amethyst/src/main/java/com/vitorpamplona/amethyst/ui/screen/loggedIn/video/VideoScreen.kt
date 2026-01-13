@@ -708,9 +708,9 @@ private fun RenderVideoOrPictureNote(
                     visible = !captionVisible.value,
                     enter = fadeIn(),
                     exit = fadeOut(),
+                    modifier = AuthorInfoVideoFeed.align(Alignment.BottomEnd),
                 ) {
                     Column(
-                        modifier = AuthorInfoVideoFeed.align(Alignment.BottomEnd),
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
