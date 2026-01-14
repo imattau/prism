@@ -154,6 +154,20 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            def props = new Properties()
+            def localProps = rootProject.file("local.properties")
+            if (localProps.exists()) {
+                localProps.withInputStream { stream -> props.load(stream) }
+            }
+            storeFile = props.getProperty("RELEASE_STORE_FILE") ? file(props.getProperty("RELEASE_STORE_FILE")) : null
+            storePassword = props.getProperty("RELEASE_STORE_PASSWORD")
+            keyAlias = props.getProperty("RELEASE_KEY_ALIAS")
+            keyPassword = props.getProperty("RELEASE_KEY_PASSWORD")
+        }
+    }
+
     // TODO: remove this when lightcompressor uses one MP4 parser only
     packaging {
         resources {
@@ -179,6 +193,7 @@ android {
             dimension "channel"
             applicationIdSuffix ".prism"
             buildConfigField "boolean", "IS_PRISM", "true"
+            signingConfig signingConfigs.release
         }
     }
 
