@@ -52,9 +52,12 @@ fun UserCompose(
     modifier: Modifier = Modifier,
     accountViewModel: AccountViewModel,
     nav: INav,
+    onClick: (() -> Unit)? = null,
 ) {
+    val clickAction = onClick ?: { nav.nav(routeFor(baseUser)) }
+
     SlimListItem(
-        modifier = modifier.clickable { nav.nav(routeFor(baseUser)) },
+        modifier = modifier.clickable { clickAction() },
         leadingContent = {
             UserPicture(baseUser, Size55dp, accountViewModel = accountViewModel, nav = nav)
         },
@@ -77,6 +80,7 @@ fun UserActionOptions(
     baseAuthor: User,
     accountViewModel: AccountViewModel,
     nav: INav,
+    onClick: (() -> Unit)? = null,
 ) {
     val isHidden by observeAccountIsHiddenUser(accountViewModel.account, baseAuthor)
     if (isHidden) {
@@ -125,6 +129,7 @@ fun UserComposeNoAction(
     modifier: Modifier = StdPadding,
     accountViewModel: AccountViewModel,
     nav: INav,
+    onClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = modifier.clickable { nav.nav(routeFor(baseUser)) },

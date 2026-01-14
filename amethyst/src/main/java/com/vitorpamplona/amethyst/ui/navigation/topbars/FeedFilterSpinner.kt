@@ -63,6 +63,7 @@ import com.vitorpamplona.amethyst.service.relayClient.reqCommand.event.observeNo
 import com.vitorpamplona.amethyst.ui.components.LoadingAnimation
 import com.vitorpamplona.amethyst.ui.components.SpinnerSelectionDialog
 import com.vitorpamplona.amethyst.ui.note.creators.location.LoadCityName
+import com.vitorpamplona.amethyst.ui.note.toShortDisplay
 import com.vitorpamplona.amethyst.ui.screen.AroundMeFeedDefinition
 import com.vitorpamplona.amethyst.ui.screen.CommunityName
 import com.vitorpamplona.amethyst.ui.screen.FeedDefinition
@@ -112,6 +113,7 @@ fun FeedFilterSpinner(
                     ?: when {
                         placeholderCode.startsWith("Hashtag/") -> "#${placeholderCode.removePrefix("Hashtag/")}"
                         placeholderCode.startsWith("Geohash/") -> "/g/${placeholderCode.removePrefix("Geohash/")}"
+                        placeholderCode.startsWith("User/") -> "@${placeholderCode.removePrefix("User/").toShortDisplay()}"
                         else -> selectAnOption
                     }
             }

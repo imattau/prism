@@ -36,6 +36,7 @@ import com.vitorpamplona.amethyst.model.topNavFeeds.aroundMe.LocationTopNavFilte
 import com.vitorpamplona.amethyst.model.topNavFeeds.global.GlobalFeedFlow
 import com.vitorpamplona.amethyst.model.topNavFeeds.hashtag.HashtagTopNavFilter
 import com.vitorpamplona.amethyst.model.topNavFeeds.noteBased.NoteFeedFlow
+import com.vitorpamplona.amethyst.model.topNavFeeds.noteBased.author.AuthorsByOutboxTopNavFilter
 import com.vitorpamplona.amethyst.model.topNavFeeds.unknown.UnknownFeedFlow
 import com.vitorpamplona.amethyst.service.location.LocationState
 import com.vitorpamplona.quartz.nip01Core.relay.normalizer.NormalizedRelayUrl
@@ -49,6 +50,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transformLatest
@@ -81,6 +83,8 @@ class FeedTopNavFilterState(
                 when {
                     listName.startsWith("Hashtag/") ->
                         SingleHashtagFeedFlow(listName.removePrefix("Hashtag/"), followsRelays, proxyRelays, ::relayList)
+                    listName.startsWith("User/") ->
+                        SingleAuthorFeedFlow(setOf(listName.removePrefix("User/")), blockedRelays)
                     listName.startsWith("Geohash/") ->
                         SingleGeohashFeedFlow(listName.removePrefix("Geohash/"), followsRelays, proxyRelays, ::relayList)
                     else -> {
@@ -154,5 +158,20 @@ private class SingleGeohashFeedFlow(
 
     override suspend fun startValue(collector: kotlinx.coroutines.flow.FlowCollector<IFeedTopNavFilter>) {
         collector.emit(startValue())
+    }
+}
+
+private class SingleAuthorFeedFlow(
+    val authors: Set<String>,
+    val blockedRelays: StateFlow<Set<NormalizedRelayUrl>>,
+) : IFeedFlowsType {
+    private fun convert(): AuthorsByOutboxTopNavFilter = AuthorsByOutboxTopNavFilter(authors, blockedRelays)
+
+    override fun flow() = blockedRelays.map { convert() }
+
+    override fun startValue(): IFeedTopNavFilter = convert()
+
+    override suspend fun startValue(collector: kotlinx.coroutines.flow.FlowCollector<IFeedTopNavFilter>) {
+        collector.emit(convert())
     }
 }

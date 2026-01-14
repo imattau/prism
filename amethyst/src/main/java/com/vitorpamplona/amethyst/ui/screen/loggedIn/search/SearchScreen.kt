@@ -266,7 +266,17 @@ private fun DisplaySearchResults(
             hashTags,
             key = { _, item -> "#$item" },
         ) { _, item ->
-            HashtagLine(item.lowercase()) { nav.nav(Route.Hashtag(item.lowercase())) }
+            hashtagLine(item.lowercase()) {
+                if (FeatureFlags.isPrism) {
+                    applyPrismVideoFilter(
+                        "Hashtag/${item.lowercase()}",
+                        accountViewModel,
+                        nav,
+                    )
+                } else {
+                    nav.nav(Route.Hashtag(item.lowercase()))
+                }
+            }
 
             HorizontalDivider(
                 modifier = Modifier.padding(top = 10.dp),
@@ -278,7 +288,19 @@ private fun DisplaySearchResults(
             users,
             key = { _, item -> "u" + item.pubkeyHex },
         ) { _, item ->
-            UserCompose(item, accountViewModel = accountViewModel, nav = nav)
+            UserCompose(
+                item,
+                accountViewModel = accountViewModel,
+                nav = nav,
+                onClick =
+                    if (FeatureFlags.isPrism) {
+                        {
+                            applyPrismVideoFilter("User/${item.pubkeyHex}", accountViewModel, nav)
+                        }
+                    } else {
+                        null
+                    },
+            )
 
             HorizontalDivider(
                 thickness = DividerThickness,
@@ -388,8 +410,20 @@ private fun DisplaySearchResults(
     }
 }
 
+private fun applyPrismVideoFilter(
+    listName: String,
+    accountViewModel: AccountViewModel,
+    nav: INav,
+) {
+    accountViewModel.account.settings.changeDefaultStoriesFollowList(listName)
+    accountViewModel.feedStates.videoFeed.checkKeysInvalidateDataAndSendToTop()
+    accountViewModel.feedStates.videoFeed.invalidateData()
+    accountViewModel.dataSources().video.hardRefresh(accountViewModel.account)
+    nav.nav(Route.Video)
+}
+
 @Composable
-fun HashtagLine(
+fun hashtagLine(
     tag: String,
     onClick: () -> Unit,
 ) {
