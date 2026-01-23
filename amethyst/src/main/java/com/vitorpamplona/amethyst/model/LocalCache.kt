@@ -23,16 +23,16 @@ package com.vitorpamplona.amethyst.model
 import android.util.LruCache
 import androidx.compose.runtime.Stable
 import com.vitorpamplona.amethyst.Amethyst
+import com.vitorpamplona.amethyst.commons.model.Channel
 import com.vitorpamplona.amethyst.commons.model.cache.ICacheProvider
-import com.vitorpamplona.amethyst.commons.model.cache.IChannel
+import com.vitorpamplona.amethyst.commons.model.emphChat.EphemeralChatChannel
+import com.vitorpamplona.amethyst.commons.model.nip28PublicChats.PublicChatChannel
+import com.vitorpamplona.amethyst.commons.model.nip53LiveActivities.LiveActivitiesChannel
+import com.vitorpamplona.amethyst.commons.model.privateChats.ChatroomList
 import com.vitorpamplona.amethyst.isDebug
-import com.vitorpamplona.amethyst.model.emphChat.EphemeralChatChannel
-import com.vitorpamplona.amethyst.model.nip28PublicChats.PublicChatChannel
 import com.vitorpamplona.amethyst.model.nip51Lists.HiddenUsersState
-import com.vitorpamplona.amethyst.model.nip53LiveActivities.LiveActivitiesChannel
 import com.vitorpamplona.amethyst.model.observables.LatestByKindAndAuthor
 import com.vitorpamplona.amethyst.model.observables.LatestByKindWithETag
-import com.vitorpamplona.amethyst.model.privateChats.ChatroomList
 import com.vitorpamplona.amethyst.service.BundledInsert
 import com.vitorpamplona.amethyst.service.checkNotInMainThread
 import com.vitorpamplona.amethyst.ui.note.dateFormatter
@@ -324,23 +324,12 @@ object LocalCache : ILocalCache, ICacheProvider {
         return users.get(key)
     }
 
-    override fun countUsers(predicate: (String, Any) -> Boolean): Int {
+    override fun countUsers(predicate: (String, User) -> Boolean): Int {
         var count = 0
         users.forEach { key, user ->
             if (predicate(key, user)) count++
         }
         return count
-    }
-
-    override fun getAnyChannel(note: Any?): IChannel? {
-        val channelNote = note as? Note ?: return null
-        val channel = getAnyChannel(channelNote)
-        // Wrap Channel to implement IChannel interface
-        return channel?.let {
-            object : IChannel {
-                override fun relays(): List<Any>? = it.relays().toList()
-            }
-        }
     }
 
     fun getAddressableNoteIfExists(key: String): AddressableNote? = Address.parse(key)?.let { addressables.get(it) }
@@ -470,7 +459,7 @@ object LocalCache : ILocalCache, ICacheProvider {
 
     fun getOrCreateAddressableNoteInternal(key: Address): AddressableNote = addressables.getOrCreate(key) { AddressableNote(key) }
 
-    fun getOrCreateAddressableNote(key: Address): AddressableNote {
+    override fun getOrCreateAddressableNote(key: Address): AddressableNote {
         val note = getOrCreateAddressableNoteInternal(key)
         // Loads the user outside a Syncronized block to avoid blocking
         if (note.author == null) {
@@ -531,8 +520,12 @@ object LocalCache : ILocalCache, ICacheProvider {
 
         // avoids processing empty contact lists.
         if (event.createdAt > (user.latestContactList?.createdAt ?: 0) && !event.tags.isEmpty() && (wasVerified || justVerify(event))) {
-            user.updateContactList(event)
+            val needsToUpdateFollowers = user.updateContactList(event)
             // Log.d("CL", "Consumed contact list ${user.toNostrUri()} ${event.relays()?.size}")
+
+            needsToUpdateFollowers.forEach {
+                getUserIfExists(it)?.flowSet?.followers?.invalidateData()
+            }
 
             updateObservables(event)
 
@@ -1405,7 +1398,7 @@ object LocalCache : ILocalCache, ICacheProvider {
         }
     }
 
-    fun getAnyChannel(note: Note): Channel? = note.event?.let { getAnyChannel(it) }
+    override fun getAnyChannel(note: Note): Channel? = note.event?.let { getAnyChannel(it) }
 
     fun getAnyChannel(noteEvent: Event): Channel? =
         when (noteEvent) {
@@ -2724,7 +2717,7 @@ object LocalCache : ILocalCache, ICacheProvider {
         }
     }
 
-    fun justConsumeMyOwnEvent(event: Event) = justConsumeAndUpdateIndexes(event, null, true)
+    override fun justConsumeMyOwnEvent(event: Event) = justConsumeAndUpdateIndexes(event, null, true)
 
     fun justConsume(
         event: Event,
