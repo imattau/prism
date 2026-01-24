@@ -22,6 +22,7 @@ package com.vitorpamplona.amethyst.ui.screen.loggedIn.settings
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -33,7 +34,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -57,6 +58,10 @@ import com.vitorpamplona.amethyst.ui.navigation.navs.INav
 import com.vitorpamplona.amethyst.ui.navigation.topbars.TopBarWithBackButton
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.AccountViewModel
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.mockAccountViewModel
+import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.components.AddPeerTubeChannelButton
+import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.components.PeerTubeChannelConfigViewModel
+import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.components.PeerTubeChannelInputModal
+import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.components.PeerTubeChannelRow
 import com.vitorpamplona.amethyst.ui.stringRes
 import com.vitorpamplona.amethyst.ui.theme.FontScale
 import com.vitorpamplona.amethyst.ui.theme.Size10dp
@@ -79,6 +84,9 @@ fun UserSettingsScreen(
     accountViewModel: AccountViewModel,
     nav: INav,
 ) {
+    val channelConfigViewModel = remember { PeerTubeChannelConfigViewModel(accountViewModel.account) }
+    var showAddChannelDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopBarWithBackButton(stringRes(id = R.string.user_preferences), nav::popBack)
@@ -97,6 +105,20 @@ fun UserSettingsScreen(
                 }
                 FontScaleSetting(accountViewModel)
                 DontTranslateFromSetting(accountViewModel)
+
+                // Section for PeerTube Channel Settings
+                PeerTubeSettingsSection(
+                    accountViewModel = accountViewModel,
+                    channelConfigViewModel = channelConfigViewModel,
+                    onAddChannel = { showAddChannelDialog = true },
+                )
+
+                if (showAddChannelDialog) {
+                    PeerTubeChannelInputModal(
+                        accountViewModel = accountViewModel,
+                        onClose = { showAddChannelDialog = false },
+                    )
+                }
             }
         }
     }
@@ -106,14 +128,13 @@ fun UserSettingsScreen(
 fun VideoFeedVideosOnlySetting(accountViewModel: AccountViewModel) {
     val videosOnly by accountViewModel.account.settings.videoFeedVideosOnly
         .collectAsStateWithLifecycle()
-
     SettingsRow(
-        name = R.string.video_feed_videos_only_title,
+        name = R.string.video_feed_videos_only,
         description = R.string.video_feed_videos_only_description,
     ) {
         Switch(
             checked = videosOnly,
-            onCheckedChange = { accountViewModel.account.settings.setVideoFeedVideosOnly(it) },
+            onCheckedChange = { accountViewModel.account.settings.changeVideoFeedVideosOnly(it) },
         )
     }
 }
@@ -126,8 +147,8 @@ fun FontScaleSetting(accountViewModel: AccountViewModel) {
     val clampedIndex = fontScaleIndex.coerceIn(0, options.size - 1)
 
     SettingsRow(
-        name = R.string.font_scale_title,
-        description = R.string.font_scale_description,
+        name = R.string.font_size,
+        description = R.string.font_size_description,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(text = stringRes(options[clampedIndex].labelResId))
@@ -161,7 +182,7 @@ fun DontTranslateFromSetting(accountViewModel: AccountViewModel) {
                     onValueChange = {},
                     readOnly = true,
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable),
+                    modifier = Modifier,
                 )
 
                 ExposedDropdownMenu(
@@ -189,5 +210,36 @@ fun DontTranslateFromSetting(accountViewModel: AccountViewModel) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun PeerTubeSettingsSection(
+    accountViewModel: AccountViewModel,
+    channelConfigViewModel: PeerTubeChannelConfigViewModel,
+    onAddChannel: () -> Unit,
+) {
+    val currentChannels by channelConfigViewModel.peerTubeChannels.collectAsStateWithLifecycle()
+
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+        Text(
+            text = stringRes(R.string.peertube_channels),
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.titleSmall,
+        )
+
+        currentChannels.forEach { channel ->
+            PeerTubeChannelRow(
+                channel = channel,
+                onRemove = { channelConfigViewModel.removeChannel(channel) },
+                accountViewModel = accountViewModel,
+            )
+        }
+
+        AddPeerTubeChannelButton(
+            accountViewModel = accountViewModel,
+            modifier = Modifier.fillMaxWidth(),
+            onAddChannel = onAddChannel,
+        )
     }
 }

@@ -66,6 +66,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.combineTransform
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 
@@ -232,15 +233,20 @@ class TopNavFilterState(
             )
         }
 
+    private val peerTubeRoutesFlow =
+        account.settings.peerTubeChannels.map { buildPeerTubeFeedDefinitions(it) }
+
     private val _kind3GlobalPeopleRoutes =
         combineTransform(
+            peerTubeRoutesFlow,
             livePeopleListsFlow,
             liveInterestFlows,
-        ) { myLivePeopleListsFlow, myLiveKind3FollowsFlow ->
+        ) { peerTubeRoutes, myLivePeopleListsFlow, myLiveKind3FollowsFlow ->
             checkNotInMainThread()
             emit(
                 listOf(
                     listOf(allFollows, userFollows, kind3Follows, aroundMe, globalFollow),
+                    peerTubeRoutes,
                     myLivePeopleListsFlow,
                     myLiveKind3FollowsFlow,
                     listOf(muteListFollow),
@@ -250,13 +256,15 @@ class TopNavFilterState(
 
     private val _kind3GlobalPeople =
         combineTransform(
+            peerTubeRoutesFlow,
             livePeopleListsFlow,
             liveInterestFlows,
-        ) { myLivePeopleListsFlow, myLiveKind3FollowsFlow ->
+        ) { peerTubeRoutes, myLivePeopleListsFlow, _ ->
             checkNotInMainThread()
             emit(
                 listOf(
                     listOf(allFollows, userFollows, kind3Follows, aroundMe, globalFollow),
+                    peerTubeRoutes,
                     myLivePeopleListsFlow,
                     listOf(muteListFollow),
                 ).flatten().toImmutableList(),
@@ -282,6 +290,7 @@ enum class CodeNameType {
     HARDCODED,
     PEOPLE_LIST,
     ROUTE,
+    PEERTUBE,
 }
 
 abstract class Name {

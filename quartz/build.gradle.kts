@@ -116,6 +116,11 @@ kotlin {
                 // Kotlin serialization for the times where we need the Json tree and performance is not that important.
                 implementation(libs.kotlinx.serialization.json)
 
+                implementation(libs.ktor.client.core)
+                implementation(libs.ktor.client.cio)
+                implementation(libs.ktor.client.content.negotiation)
+                implementation(libs.ktor.serialization.kotlinx.json)
+
                 // immutable collections to avoid recomposition
                 implementation(libs.kotlinx.collections.immutable)
             }

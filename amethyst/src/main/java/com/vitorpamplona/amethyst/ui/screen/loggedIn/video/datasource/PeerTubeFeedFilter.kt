@@ -18,19 +18,22 @@
  * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-package com.vitorpamplona.quartz.utils
+package com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource
 
-// iosMain
-import platform.Foundation.NSDate
-import platform.Foundation.NSISO8601DateFormatter
-import platform.Foundation.timeIntervalSince1970
+import com.vitorpamplona.amethyst.commons.ui.feeds.IFeedFilter
+import com.vitorpamplona.amethyst.model.Account
+import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.subassemblies.PeerTubeVideoSource
+import com.vitorpamplona.quartz.peertube.UnifiedVideoItem
 
-actual fun platform() = "iOS"
+class PeerTubeFeedFilter(
+    private val account: Account,
+    private val videoSource: PeerTubeVideoSource,
+) : IFeedFilter<UnifiedVideoItem> {
+    override fun feedKey(): Any = account.settings.peerTubeChannels.value
 
-actual fun currentTimeSeconds(): Long {
-    // CFAbsoluteTimeGetCurrent() returns seconds since 2001-01-01 00:00:00 UTC
-    // NSDate().timeIntervalSince1970 returns seconds since 1970-01-01 00:00:00 UTC
-    return (NSDate().timeIntervalSince1970).toLong()
+    override fun loadTop(): List<UnifiedVideoItem> = videoSource.videos.value
+
+    override fun showHiddenKey(): Boolean = false
+
+    override fun feed(): List<UnifiedVideoItem> = videoSource.videos.value
 }
-
-actual fun parseISO8601(date: String): Long? = NSISO8601DateFormatter().dateFromString(date)?.timeIntervalSince1970?.toLong()

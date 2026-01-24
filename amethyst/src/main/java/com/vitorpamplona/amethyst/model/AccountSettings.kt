@@ -54,6 +54,7 @@ import com.vitorpamplona.quartz.nip65RelayList.tags.AdvertisedRelayInfo
 import com.vitorpamplona.quartz.nip65RelayList.tags.AdvertisedRelayType
 import com.vitorpamplona.quartz.nip72ModCommunities.follow.CommunityListEvent
 import com.vitorpamplona.quartz.nip78AppData.AppSpecificDataEvent
+import com.vitorpamplona.quartz.peertube.PeerTubeChannelConfig
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -71,12 +72,14 @@ val DefaultChannels =
 
 val DefaultNIP65RelaySet = setOf(Constants.mom, Constants.nos, Constants.bitcoiner)
 
-val DefaultNIP65List =
+val DefaultNIP65RelayList =
     listOf(
         AdvertisedRelayInfo(Constants.mom, AdvertisedRelayType.BOTH),
         AdvertisedRelayInfo(Constants.nos, AdvertisedRelayType.BOTH),
         AdvertisedRelayInfo(Constants.bitcoiner, AdvertisedRelayType.BOTH),
     )
+
+val DefaultNIP65List = DefaultNIP65RelayList
 
 val DefaultDMRelayList = listOf(Constants.auth, Constants.oxchat, Constants.nos)
 
@@ -150,6 +153,8 @@ class AccountSettings(
     val lastReadPerRoute: MutableStateFlow<Map<String, MutableStateFlow<Long>>> = MutableStateFlow(mapOf()),
     var hasDonatedInVersion: MutableStateFlow<Set<String>> = MutableStateFlow(setOf<String>()),
     val pendingAttestations: MutableStateFlow<Map<HexKey, String>> = MutableStateFlow<Map<HexKey, String>>(mapOf()),
+    // New property for PeerTube channel configurations
+    val peerTubeChannels: MutableStateFlow<List<PeerTubeChannelConfig>> = MutableStateFlow(emptyList()),
 ) : EphemeralChatRepository,
     PublicChatListRepository {
     val saveable = MutableStateFlow(AccountSettingsUpdater(null))
@@ -161,6 +166,35 @@ class AccountSettings(
 
     fun saveAccountSettings() {
         saveable.update { AccountSettingsUpdater(this) }
+    }
+
+    fun addPeerTubeChannel(
+        channelName: String,
+        instanceUrl: String,
+    ): Boolean {
+        val newChannel = PeerTubeChannelConfig(channelName.trim(), instanceUrl.trim())
+        if (newChannel.channelName.isBlank() || newChannel.instanceUrl.isBlank()) {
+            return false
+        }
+
+        val current = peerTubeChannels.value
+        if (current.contains(newChannel)) {
+            return false
+        }
+
+        peerTubeChannels.tryEmit(current + newChannel)
+        saveAccountSettings()
+        return true
+    }
+
+    fun removePeerTubeChannel(channel: PeerTubeChannelConfig): Boolean {
+        val current = peerTubeChannels.value
+        if (!current.contains(channel)) {
+            return false
+        }
+        peerTubeChannels.tryEmit(current - channel)
+        saveAccountSettings()
+        return true
     }
 
     fun isWriteable(): Boolean = keyPair.privKey != null || externalSignerPackageName != null
@@ -213,6 +247,8 @@ class AccountSettings(
         }
         return false
     }
+
+    fun changeVideoFeedVideosOnly(enabled: Boolean): Boolean = setVideoFeedVideosOnly(enabled)
 
     fun setVideoFeedNewestFirst(enabled: Boolean): Boolean {
         if (videoFeedNewestFirst.value != enabled) {
@@ -642,9 +678,9 @@ class AccountSettings(
         }
     }
 
-    // ---
+    // ----
     // filters
-    // ---
+    // ----
     fun updateShowSensitiveContent(show: Boolean?): Boolean {
         if (syncedSettings.security.updateShowSensitiveContent(show)) {
             saveAccountSettings()

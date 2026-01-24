@@ -66,4 +66,6 @@ object TimeUtils {
     fun ninetyDaysFromNow() = now() + NINETY_DAYS
 
     fun oneYearAgo() = now() - ONE_YEAR
+
+    fun parseDate(date: String): Long? = parseISO8601(date)
 }

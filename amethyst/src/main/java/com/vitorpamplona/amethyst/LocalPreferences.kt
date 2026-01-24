@@ -60,6 +60,7 @@ import com.vitorpamplona.quartz.nip51Lists.relayLists.TrustedRelayListEvent
 import com.vitorpamplona.quartz.nip65RelayList.AdvertisedRelayListEvent
 import com.vitorpamplona.quartz.nip72ModCommunities.follow.CommunityListEvent
 import com.vitorpamplona.quartz.nip78AppData.AppSpecificDataEvent
+import com.vitorpamplona.quartz.peertube.PeerTubeChannelConfig
 import com.vitorpamplona.quartz.utils.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -134,6 +135,9 @@ private object PrefKeys {
 
     const val ALL_ACCOUNT_INFO = "all_saved_accounts_info"
     const val SHARED_SETTINGS = "shared_settings"
+
+    // New preference key for PeerTube channels
+    const val PEERTUBE_CHANNELS = "peertube_channels"
 }
 
 object LocalPreferences {
@@ -493,6 +497,9 @@ object LocalPreferences {
                         PrefKeys.PENDING_ATTESTATIONS,
                         JsonMapper.toJson(settings.pendingAttestations.value),
                     )
+
+                    // Save PeerTube channels
+                    putString(PrefKeys.PEERTUBE_CHANNELS, JsonMapper.toJson(settings.peerTubeChannels.value))
                 }
             }
         }
@@ -619,7 +626,7 @@ object LocalPreferences {
                     val fontScaleIndex = getInt(PrefKeys.FONT_SCALE_INDEX, 2)
                     val sensitiveUserOverrides = parseOrNull<Set<String>>(PrefKeys.SENSITIVE_USER_OVERRIDES) ?: setOf()
 
-                    val zapPaymentRequestServer = parseOrNull<Nip47WalletConnect.Nip47URI>(PrefKeys.ZAP_PAYMENT_REQUEST_SERVER)
+                    val zapPaymentRequestServer = parseOrNull<Nip47WalletConnect.Nip47URINorm>(PrefKeys.ZAP_PAYMENT_REQUEST_SERVER)
                     val defaultFileServer = parseOrNull<ServerName>(PrefKeys.DEFAULT_FILE_SERVER) ?: DEFAULT_MEDIA_SERVERS[0]
 
                     val pendingAttestations = parseOrNull<Map<HexKey, String>>(PrefKeys.PENDING_ATTESTATIONS) ?: mapOf()
@@ -655,6 +662,10 @@ object LocalPreferences {
                     val keyPair = KeyPair(privKey = privKey?.hexToByteArray(), pubKey = pubKey.hexToByteArray())
                     val hasDonatedInVersion = getStringSet(PrefKeys.HAS_DONATED_IN_VERSION, null) ?: setOf()
 
+                    // Load PeerTube channels
+                    val peerTubeChannelsJson = getString(PrefKeys.PEERTUBE_CHANNELS, "[]") ?: "[]"
+                    val peerTubeChannelsList = JsonMapper.fromJson<List<PeerTubeChannelConfig>>(peerTubeChannelsJson) ?: emptyList()
+
                     return@with AccountSettings(
                         keyPair = keyPair,
                         transientAccount = false,
@@ -670,7 +681,7 @@ object LocalPreferences {
                         videoFeedLastPositions = MutableStateFlow(videoFeedLastPositions),
                         fontScaleIndex = MutableStateFlow(fontScaleIndex),
                         sensitiveUserOverrides = MutableStateFlow(sensitiveUserOverrides),
-                        zapPaymentRequest = MutableStateFlow(zapPaymentRequestServer?.normalize()),
+                        zapPaymentRequest = MutableStateFlow(zapPaymentRequestServer),
                         hideDeleteRequestDialog = hideDeleteRequestDialog,
                         hideBlockAlertDialog = hideBlockAlertDialog,
                         hideNIP17WarningDialog = hideNIP17WarningDialog,
@@ -694,6 +705,8 @@ object LocalPreferences {
                         lastReadPerRoute = MutableStateFlow(lastReadPerRoute),
                         hasDonatedInVersion = MutableStateFlow(hasDonatedInVersion),
                         pendingAttestations = MutableStateFlow(pendingAttestations),
+                        // Initialize PeerTube channels
+                        peerTubeChannels = MutableStateFlow(peerTubeChannelsList),
                     )
                 }
             }
@@ -774,7 +787,7 @@ object LocalPreferences {
 
     fun SharedPreferences.Editor.putOrRemove(
         key: String,
-        nwc: Nip47WalletConnect.Nip47URI?,
+        nwc: Nip47WalletConnect.Nip47URINorm?,
     ) {
         if (nwc != null) {
             putString(key, JsonMapper.toJson(nwc))

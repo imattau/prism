@@ -20,6 +20,16 @@
  */
 package com.vitorpamplona.quartz.utils
 
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+
 actual fun platform() = "JVM"
 
 actual fun currentTimeSeconds() = System.currentTimeMillis() / 1000
+
+actual fun parseISO8601(date: String): Long? =
+    try {
+        OffsetDateTime.parse(date, DateTimeFormatter.ISO_DATE_TIME).toEpochSecond()
+    } catch (e: Exception) {
+        null
+    }

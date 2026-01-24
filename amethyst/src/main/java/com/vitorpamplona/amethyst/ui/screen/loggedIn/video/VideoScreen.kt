@@ -75,6 +75,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -124,14 +125,20 @@ import com.vitorpamplona.amethyst.ui.note.timeAgo
 import com.vitorpamplona.amethyst.ui.note.types.FileHeaderDisplay
 import com.vitorpamplona.amethyst.ui.note.types.FileStorageHeaderDisplay
 import com.vitorpamplona.amethyst.ui.note.types.JustVideoDisplay
+import com.vitorpamplona.amethyst.ui.note.types.PeerTubeVideoDisplay
 import com.vitorpamplona.amethyst.ui.note.types.PictureDisplay
 import com.vitorpamplona.amethyst.ui.screen.AccountStateViewModel
+import com.vitorpamplona.amethyst.ui.screen.PeerTubeFilter
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.AccountViewModel
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.VideoFilterAssemblerSubscription
+import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.subassemblies.PeerTubeVideoSource
+import com.vitorpamplona.amethyst.ui.screen.matches
+import com.vitorpamplona.amethyst.ui.screen.peerTubeFilterForCode
 import com.vitorpamplona.amethyst.ui.stringRes
 import com.vitorpamplona.amethyst.ui.theme.AuthorInfoVideoFeed
 import com.vitorpamplona.amethyst.ui.theme.DoubleHorzSpacer
 import com.vitorpamplona.amethyst.ui.theme.HalfFeedPadding
+import com.vitorpamplona.amethyst.ui.theme.Size10dp
 import com.vitorpamplona.amethyst.ui.theme.Size20Modifier
 import com.vitorpamplona.amethyst.ui.theme.Size22Modifier
 import com.vitorpamplona.amethyst.ui.theme.Size25dp
@@ -151,11 +158,53 @@ import com.vitorpamplona.quartz.nip10Notes.TextNoteEvent
 import com.vitorpamplona.quartz.nip68Picture.PictureEvent
 import com.vitorpamplona.quartz.nip71Video.VideoEvent
 import com.vitorpamplona.quartz.nip94FileMetadata.FileHeaderEvent
+import com.vitorpamplona.quartz.peertube.UnifiedVideoItem
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.reflect.KClass
 import kotlin.time.Duration.Companion.seconds
+
+sealed interface VideoFeedEntry {
+    val id: String
+    val createdAt: Long?
+
+    class NostrEntry(
+        val note: Note,
+    ) : VideoFeedEntry {
+        override val id: String
+            get() = note.idHex
+
+        override val createdAt: Long?
+            get() = note.createdAt()
+    }
+
+    class PeerTubeEntry(
+        val video: UnifiedVideoItem,
+    ) : VideoFeedEntry {
+        override val id: String = "peertube-${video.url.hashCode()}-${video.id}"
+        override val createdAt: Long? = video.createdAt
+    }
+}
+
+private fun mergeVideoEntries(
+    notes: List<Note>,
+    peerTubeVideos: List<UnifiedVideoItem>,
+    newestFirst: Boolean,
+): List<VideoFeedEntry> {
+    val entries = mutableListOf<VideoFeedEntry>()
+    entries += notes.map { VideoFeedEntry.NostrEntry(it) }
+    entries += peerTubeVideos.map { VideoFeedEntry.PeerTubeEntry(it) }
+    entries.sortWith(videoFeedEntryComparator(newestFirst))
+    return entries
+}
+
+private fun videoFeedEntryComparator(newestFirst: Boolean): Comparator<VideoFeedEntry> =
+    if (newestFirst) {
+        compareByDescending<VideoFeedEntry> { it.createdAt ?: 0L }.thenBy { it.id }
+    } else {
+        compareBy<VideoFeedEntry> { it.createdAt ?: 0L }.thenBy { it.id }
+    }
 
 @Composable
 fun VideoScreen(
@@ -168,6 +217,7 @@ fun VideoScreen(
         accountViewModel,
         accountStateViewModel,
         nav,
+        accountViewModel.peerTubeVideoSource,
     )
 }
 
@@ -177,6 +227,7 @@ fun VideoScreen(
     accountViewModel: AccountViewModel,
     accountStateViewModel: AccountStateViewModel,
     nav: INav,
+    peerTubeVideoSource: PeerTubeVideoSource,
 ) {
     val controlsVisible = remember { mutableStateOf(true) }
     val controlsTrigger = remember { mutableStateOf(0) }
@@ -238,6 +289,7 @@ fun VideoScreen(
                 videoFeedContentState = videoFeedContentState,
                 pagerStateKey = ScrollStateKeys.VIDEO_SCREEN,
                 accountViewModel = accountViewModel,
+                peerTubeVideoSource = peerTubeVideoSource,
                 nav = nav,
                 controlsVisible = controlsVisible.value,
                 onUserInteraction = { controlsTrigger.value += 1 },
@@ -273,6 +325,7 @@ fun RenderPage(
     videoFeedContentState: FeedContentState,
     pagerStateKey: String?,
     accountViewModel: AccountViewModel,
+    peerTubeVideoSource: PeerTubeVideoSource,
     nav: INav,
     controlsVisible: Boolean,
     onUserInteraction: () -> Unit,
@@ -284,6 +337,8 @@ fun RenderPage(
     val feedCode by accountViewModel.account.settings.defaultStoriesFollowList
         .collectAsStateWithLifecycle()
     val lastPositions by accountViewModel.account.settings.videoFeedLastPositions
+        .collectAsStateWithLifecycle()
+    val newestFirst by accountViewModel.account.settings.videoFeedNewestFirst
         .collectAsStateWithLifecycle()
 
     CrossfadeIfEnabled(
@@ -305,6 +360,8 @@ fun RenderPage(
                     pagerStateKey,
                     videoFeedContentState,
                     accountViewModel,
+                    peerTubeVideoSource,
+                    newestFirst,
                     nav,
                     controlsVisible,
                     onUserInteraction,
@@ -328,6 +385,8 @@ private fun LoadedState(
     pagerStateKey: String?,
     videoFeedContentState: FeedContentState,
     accountViewModel: AccountViewModel,
+    peerTubeVideoSource: PeerTubeVideoSource,
+    newestFirst: Boolean,
     nav: INav,
     controlsVisible: Boolean,
     onUserInteraction: () -> Unit,
@@ -337,12 +396,19 @@ private fun LoadedState(
     detailsOverlayVisible: Boolean,
     onDetailsOverlayVisibleChange: (Boolean) -> Unit,
 ) {
-    val newNotesState = remember { mutableStateOf<List<Note>>(emptyList()) }
+    val peerTubeChannels by accountViewModel.account.settings.peerTubeChannels
+        .collectAsStateWithLifecycle()
+    val peerTubeVideos by peerTubeVideoSource.videos.collectAsStateWithLifecycle()
+    val peerTubeError by peerTubeVideoSource.errorState.collectAsStateWithLifecycle()
+    val peerTubeFetching by peerTubeVideoSource.isFetching.collectAsStateWithLifecycle()
+    val indicatorTopPadding = 5.dp
+    val newNotesState = remember { mutableStateOf<List<VideoFeedEntry>>(emptyList()) }
     val isAtTopState = remember { mutableStateOf(true) }
     RefresheableBox(
         onRefresh = {
             videoFeedContentState.lastNoteCreatedAtWhenFullyLoaded.tryEmit(null)
             accountViewModel.dataSources().video.hardRefresh(accountViewModel.account)
+            peerTubeVideoSource.refreshNow()
             videoFeedContentState.invalidateData()
         },
     ) {
@@ -352,6 +418,8 @@ private fun LoadedState(
                 pagerStateKey,
                 videoFeedContentState,
                 accountViewModel,
+                peerTubeVideoSource,
+                newestFirst,
                 nav,
                 newNotesState,
                 isAtTopState,
@@ -364,9 +432,20 @@ private fun LoadedState(
                 onDetailsOverlayVisibleChange,
             )
 
+            PeerTubeFetchIndicator(
+                hasChannels = peerTubeChannels.isNotEmpty(),
+                videoCount = peerTubeVideos.size,
+                errorMessage = peerTubeError,
+                isFetching = peerTubeFetching,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = indicatorTopPadding),
+            )
+
             if (FeatureFlags.isPrism && newNotesState.value.isNotEmpty() && !isAtTopState.value) {
                 NewItemsPill(
-                    newNotes = newNotesState.value,
+                    newEntries = newNotesState.value,
                     accountViewModel = accountViewModel,
                     onClick = {
                         videoFeedContentState.sendToTop()
@@ -385,8 +464,10 @@ fun SlidingCarousel(
     pagerStateKey: String?,
     videoFeedContentState: FeedContentState,
     accountViewModel: AccountViewModel,
+    peerTubeVideoSource: PeerTubeVideoSource,
+    newestFirst: Boolean,
     nav: INav,
-    newNotesState: androidx.compose.runtime.MutableState<List<Note>>,
+    newNotesState: androidx.compose.runtime.MutableState<List<VideoFeedEntry>>,
     isAtTopState: androidx.compose.runtime.MutableState<Boolean>,
     controlsVisible: Boolean,
     onUserInteraction: () -> Unit,
@@ -397,23 +478,44 @@ fun SlidingCarousel(
     onDetailsOverlayVisibleChange: (Boolean) -> Unit,
 ) {
     val items by loaded.feed.collectAsStateWithLifecycle()
+    val peerTubeVideos by peerTubeVideoSource.videos.collectAsStateWithLifecycle()
+    val peerTubeChannels by accountViewModel.account.settings.peerTubeChannels
+        .collectAsStateWithLifecycle()
+    val combinedEntries =
+        remember(items.list, peerTubeVideos, newestFirst) {
+            mergeVideoEntries(items.list, peerTubeVideos, newestFirst)
+        }
+    val peerTubeFilter =
+        remember(feedCode, peerTubeChannels) {
+            peerTubeFilterForCode(feedCode, peerTubeChannels)
+        }
+    val visibleEntries =
+        remember(combinedEntries, peerTubeFilter) {
+            if (peerTubeFilter == PeerTubeFilter.None) {
+                combinedEntries
+            } else {
+                combinedEntries.filter { entry ->
+                    entry is VideoFeedEntry.PeerTubeEntry && peerTubeFilter.matches(entry.video)
+                }
+            }
+        }
     val lastSeenTopId = remember { mutableStateOf<String?>(null) }
 
     val pagerState =
         if (pagerStateKey != null) {
-            rememberForeverPagerState(pagerStateKey) { items.list.size }
+            rememberForeverPagerState(pagerStateKey) { visibleEntries.size }
         } else {
-            rememberPagerState(items.list.size) { items.list.size }
+            rememberPagerState(visibleEntries.size) { visibleEntries.size }
         }
 
     WatchScrollToTop(videoFeedContentState, pagerState)
 
     val restoredPositionKey = remember(feedCode) { mutableStateOf(false) }
 
-    LaunchedEffect(items.list, feedCode, lastPositions) {
+    LaunchedEffect(visibleEntries, feedCode, lastPositions) {
         if (restoredPositionKey.value) return@LaunchedEffect
         val targetId = lastPositions[feedCode] ?: return@LaunchedEffect
-        val index = items.list.indexOfFirst { it.idHex == targetId }
+        val index = visibleEntries.indexOfFirst { it.id == targetId }
         if (index >= 0) {
             pagerState.scrollToPage(index)
         }
@@ -425,29 +527,29 @@ fun SlidingCarousel(
             .distinctUntilChanged()
             .collect { page ->
                 onUserInteraction()
-                items.list.getOrNull(page)?.idHex?.let { noteId ->
-                    accountViewModel.account.settings.setVideoFeedLastPosition(feedCode, noteId)
+                visibleEntries.getOrNull(page)?.id?.let { entryId ->
+                    accountViewModel.account.settings.setVideoFeedLastPosition(feedCode, entryId)
                 }
                 val isAtTop = page == 0
                 isAtTopState.value = isAtTop
                 if (isAtTop) {
-                    lastSeenTopId.value = items.list.firstOrNull()?.idHex
+                    lastSeenTopId.value = visibleEntries.firstOrNull()?.id
                 }
             }
     }
 
-    LaunchedEffect(items.list, isAtTopState.value, lastSeenTopId.value) {
+    LaunchedEffect(visibleEntries, isAtTopState.value, lastSeenTopId.value) {
         if (isAtTopState.value) {
-            lastSeenTopId.value = items.list.firstOrNull()?.idHex
+            lastSeenTopId.value = visibleEntries.firstOrNull()?.id
             newNotesState.value = emptyList()
             return@LaunchedEffect
         }
 
         val topId = lastSeenTopId.value ?: return@LaunchedEffect
-        val index = items.list.indexOfFirst { it.idHex == topId }
+        val index = visibleEntries.indexOfFirst { it.id == topId }
         newNotesState.value =
             if (index > 0) {
-                items.list.take(index)
+                visibleEntries.take(index)
             } else {
                 emptyList()
             }
@@ -458,28 +560,41 @@ fun SlidingCarousel(
         beyondViewportPageCount = 1,
         userScrollEnabled = !detailsOverlayVisible,
         modifier = Modifier.fillMaxSize(),
-        key = { index -> items.list.getOrNull(index)?.idHex ?: "$index" },
+        key = { index -> visibleEntries.getOrNull(index)?.id ?: "$index" },
     ) { index ->
-        items.list.getOrNull(index)?.let { note ->
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CheckHiddenFeedWatchBlockAndReport(
-                    note = note,
-                    modifier = Modifier.fillMaxWidth(),
-                    showHiddenWarning = true,
-                    ignoreAllBlocksAndReports = items.showHidden,
-                    accountViewModel = accountViewModel,
-                    nav = nav,
-                ) {
-                    RenderVideoOrPictureNote(
-                        note,
-                        accountViewModel,
-                        nav,
-                        controlsVisible = controlsVisible,
-                        onUserInteraction = onUserInteraction,
-                        onToggleControls = onToggleControls,
-                        onDetailsOverlayVisibleChange = onDetailsOverlayVisibleChange,
-                        onNavScrollToTop = videoFeedContentState::sendToTop,
-                    )
+        visibleEntries.getOrNull(index)?.let { entry ->
+            when (entry) {
+                is VideoFeedEntry.NostrEntry -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CheckHiddenFeedWatchBlockAndReport(
+                            note = entry.note,
+                            modifier = Modifier.fillMaxWidth(),
+                            showHiddenWarning = true,
+                            ignoreAllBlocksAndReports = items.showHidden,
+                            accountViewModel = accountViewModel,
+                            nav = nav,
+                        ) {
+                            RenderVideoOrPictureNote(
+                                entry.note,
+                                accountViewModel,
+                                nav,
+                                controlsVisible = controlsVisible,
+                                onUserInteraction = onUserInteraction,
+                                onToggleControls = onToggleControls,
+                                onDetailsOverlayVisibleChange = onDetailsOverlayVisibleChange,
+                                onNavScrollToTop = videoFeedContentState::sendToTop,
+                            )
+                        }
+                    }
+                }
+                is VideoFeedEntry.PeerTubeEntry -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        RenderPeerTubeVideoEntry(
+                            videoItem = entry.video,
+                            accountViewModel = accountViewModel,
+                            controlsVisible = controlsVisible,
+                        )
+                    }
                 }
             }
         }
@@ -488,15 +603,19 @@ fun SlidingCarousel(
 
 @Composable
 private fun NewItemsPill(
-    newNotes: List<Note>,
+    newEntries: List<VideoFeedEntry>,
     accountViewModel: AccountViewModel,
     onClick: () -> Unit,
 ) {
-    val count = newNotes.size
+    val count = newEntries.size
     val label = if (count > 9) "10+" else count.toString()
     val avatarKeys =
-        remember(newNotes) {
-            newNotes.mapNotNull { it.author?.pubkeyHex }.distinct().take(3)
+        remember(newEntries) {
+            newEntries
+                .filterIsInstance<VideoFeedEntry.NostrEntry>()
+                .mapNotNull { it.note.author?.pubkeyHex }
+                .distinct()
+                .take(3)
         }
 
     Box(
@@ -724,6 +843,104 @@ private fun RenderVideoOrPictureNote(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RenderPeerTubeVideoEntry(
+    videoItem: UnifiedVideoItem,
+    accountViewModel: AccountViewModel,
+    controlsVisible: Boolean,
+) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        PeerTubeVideoDisplay(
+            videoItem = videoItem,
+            roundedCorner = false,
+            contentScale = ContentScale.Fit,
+            accountViewModel = accountViewModel,
+            showControls = controlsVisible,
+        )
+
+        if (FeatureFlags.isPrism && controlsVisible) {
+            PeerTubeCaptionOverlay(
+                videoItem,
+                Modifier.align(Alignment.BottomStart),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PeerTubeCaptionOverlay(
+    videoItem: UnifiedVideoItem,
+    modifier: Modifier = Modifier,
+) {
+    val title = videoItem.title?.takeIf { it.isNotBlank() }
+    val subtitle = videoItem.author?.takeIf { it.isNotBlank() } ?: videoItem.url
+    if (title == null && subtitle.isBlank()) return
+
+    Column(
+        modifier
+            .padding(start = 10.dp, bottom = 10.dp)
+            .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+    ) {
+        title?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.placeholderText,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun PeerTubeFetchIndicator(
+    hasChannels: Boolean,
+    videoCount: Int,
+    errorMessage: String?,
+    isFetching: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    if (!hasChannels) return
+
+    val horizontalPadding = 5.dp
+
+    val message =
+        when {
+            !errorMessage.isNullOrBlank() ->
+                stringRes(R.string.peertube_fetch_error, errorMessage)
+            isFetching && videoCount > 0 ->
+                stringRes(R.string.peertube_refreshing)
+            isFetching || videoCount == 0 ->
+                stringRes(R.string.peertube_fetching)
+            else -> null
+        } ?: return
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        tonalElevation = 2.dp,
+        shadowElevation = 2.dp,
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.padding(horizontal = horizontalPadding, vertical = Size10dp),
+        )
     }
 }
 

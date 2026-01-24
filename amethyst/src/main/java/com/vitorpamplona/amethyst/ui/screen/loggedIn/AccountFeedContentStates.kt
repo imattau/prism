@@ -44,12 +44,15 @@ import com.vitorpamplona.amethyst.ui.screen.loggedIn.notifications.CardFeedConte
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.notifications.NotificationSummaryState
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.notifications.dal.NotificationFeedFilter
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.dal.VideoFeedFilter
+import com.vitorpamplona.amethyst.ui.screen.loggedIn.video.datasource.subassemblies.PeerTubeVideoSource
+import com.vitorpamplona.quartz.peertube.PeerTubeApi
 import kotlinx.coroutines.CoroutineScope
 
 class AccountFeedContentStates(
     val account: Account,
     val scope: CoroutineScope,
 ) {
+    val peerTubeVideoSource = PeerTubeVideoSource(PeerTubeApi(), account, scope)
     val homeLive = ChannelFeedContentState(HomeLiveFilter(account), scope)
     val homeNewThreads = FeedContentState(HomeNewThreadFeedFilter(account), scope, LocalCache)
     val homeReplies = FeedContentState(HomeConversationsFeedFilter(account), scope, LocalCache)
@@ -89,6 +92,7 @@ class AccountFeedContentStates(
         dmNew.updateFeedWith(newNotes)
 
         videoFeed.updateFeedWith(newNotes)
+        // PeerTubeVideoSource refreshes separately and the UI merges its entries with the Nostr feed.
 
         discoverMarketplace.updateFeedWith(newNotes)
         discoverFollowSets.updateFeedWith(newNotes)
@@ -115,6 +119,7 @@ class AccountFeedContentStates(
         dmNew.updateFeedWith(newNotes)
 
         videoFeed.deleteFromFeed(newNotes)
+        // PeerTubeVideoSource handles its own deduping and deletions inside its fetch loop.
 
         discoverMarketplace.deleteFromFeed(newNotes)
         discoverFollowSets.deleteFromFeed(newNotes)
@@ -135,5 +140,6 @@ class AccountFeedContentStates(
         notificationSummary.destroy()
 
         feedListOptions.destroy()
+        peerTubeVideoSource.destroy()
     }
 }

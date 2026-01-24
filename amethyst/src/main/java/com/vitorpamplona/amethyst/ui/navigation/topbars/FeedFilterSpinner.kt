@@ -70,6 +70,7 @@ import com.vitorpamplona.amethyst.ui.screen.FeedDefinition
 import com.vitorpamplona.amethyst.ui.screen.GeoHashName
 import com.vitorpamplona.amethyst.ui.screen.HashtagName
 import com.vitorpamplona.amethyst.ui.screen.Name
+import com.vitorpamplona.amethyst.ui.screen.PeerTubeChannelName
 import com.vitorpamplona.amethyst.ui.screen.PeopleListName
 import com.vitorpamplona.amethyst.ui.screen.ResourceName
 import com.vitorpamplona.amethyst.ui.screen.loggedIn.AccountViewModel
@@ -248,6 +249,8 @@ fun RenderOption(
     option: Name,
     accountViewModel: AccountViewModel,
 ) {
+    val context = LocalContext.current
+
     when (option) {
         is GeoHashName -> {
             LoadCityName(option.geoHashTag) {
@@ -274,6 +277,17 @@ fun RenderOption(
             ) {
                 Text(
                     text = stringRes(id = option.resourceId),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+        is PeerTubeChannelName -> {
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = option.name(context),
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             }

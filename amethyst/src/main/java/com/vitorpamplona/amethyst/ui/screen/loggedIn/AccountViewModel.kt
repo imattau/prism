@@ -169,6 +169,7 @@ class AccountViewModel(
 
     val toastManager = ToastManager()
     val feedStates = AccountFeedContentStates(account, viewModelScope)
+    val peerTubeVideoSource get() = feedStates.peerTubeVideoSource
 
     val tempManualPaymentCache = LruCache<String, List<ZapPaymentHandler.Payable>>(5)
 

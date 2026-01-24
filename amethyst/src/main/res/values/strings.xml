@@ -118,6 +118,11 @@
     <string name="article">Article</string>
     <string name="new_channel">New Channel</string>
     <string name="channel_name">Channel Name</string>
+    <string name="channel_name_placeholder">an-awesome-channel</string>
+    <string name="instance_url">Instance URL</string>
+    <string name="instance_url_placeholder">https://peertube.example.com</string>
+    <string name="add_channel">Add channel</string>
+    <string name="remove_channel">Remove channel</string>
     <string name="my_awesome_group">My Awesome Group</string>
     <string name="picture_url">Picture Url</string>
     <string name="optional_picture_url">Picture Url(Optional)</string>
@@ -861,10 +866,20 @@
 
     <string name="preferences">App Preferences</string>
     <string name="user_preferences">User Preferences</string>
+    <string name="video_feed_videos_only">Video feed videos only</string>
     <string name="video_feed_videos_only_title">Video feed videos only</string>
     <string name="video_feed_videos_only_description">Hide still images in the video feed.</string>
+    <string name="font_size">Font size</string>
+    <string name="font_size_description">Increase or decrease text size inside the video screens.</string>
     <string name="font_scale_title">Font size</string>
     <string name="font_scale_description">Adjust text size while respecting the system font scale.</string>
+    <string name="peertube_videos">PeerTube videos</string>
+    <string name="peertube_channels">PeerTube Channels</string>
+    <string name="add_peertube_channel">Add PeerTube channel</string>
+    <string name="peertube_fetching">Loading PeerTube videos…</string>
+    <string name="peertube_refreshing">Refreshing PeerTube videos…</string>
+    <string name="peertube_fetch_error">PeerTube error: %1$s</string>
+    <string name="peertube_channel_label">%1$s (%2$s)</string>
     <string name="font_scale_smaller">Smaller</string>
     <string name="font_scale_small">Small</string>
     <string name="font_scale_normal">Normal</string>
